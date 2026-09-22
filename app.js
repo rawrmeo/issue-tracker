@@ -27,7 +27,7 @@
     try {
       const raw = localStorage.getItem(key);
       return raw === null ? fallback : JSON.parse(raw);
-    } catch {
+    } catch (e) {
       return fallback;
     }
   }
@@ -57,7 +57,7 @@
         year: 'numeric', month: 'short', day: 'numeric',
         hour: '2-digit', minute: '2-digit',
       });
-    } catch {
+    } catch (e) {
       return '';
     }
   }
@@ -552,7 +552,7 @@
         saveIssues();
         renderIssues();
         toast('Imported ' + cleaned.length + ' issue(s).');
-      } catch {
+      } catch (e) {
         toast('Import failed: not a valid backup file.');
       }
     };
