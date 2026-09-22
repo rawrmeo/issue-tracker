@@ -1,0 +1,12 @@
+# Local state / editor files
+.DS_Store
+Thumbs.db
+*.local
+*.log
+
+# Vercel CLI
+.vercel
+
+# Node (only needed if you add a build step later)
+node_modules/
+npm-debug.log*

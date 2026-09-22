@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="A simple issue tracker with login, pending/done tracking, and auto-deploy to GitHub and Vercel." />
+  <title>Issue Tracker</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%234f46e5'/%3E%3Cpath d='M28 52l15 15 30-32' stroke='white' stroke-width='11' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <!-- ============================= AUTH ============================= -->
+  <main id="authView" class="auth-view">
+    <section class="card auth-card">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="22" height="22"><path d="M5 13l4 4L19 7" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </span>
+        <span class="brand-name">Issue Tracker</span>
+      </div>
+
+      <!-- Sign in -->
+      <form id="loginForm" class="form" hidden autocomplete="on">
+        <h1>Welcome back</h1>
+        <p class="muted">Sign in to manage your issues.</p>
+
+        <label class="field">
+          <span>Username</span>
+          <input id="loginUsername" name="username" type="text" autocomplete="username" required />
+        </label>
+
+        <label class="field">
+          <span>Password</span>
+          <input id="loginPassword" name="password" type="password" autocomplete="current-password" required />
+        </label>
+
+        <p id="loginError" class="alert error" role="alert" hidden></p>
+
+        <button type="submit" class="btn primary block">Sign in</button>
+      </form>
+
+      <!-- First run: create the admin account -->
+      <form id="setupForm" class="form" hidden autocomplete="on">
+        <h1>Create your account</h1>
+        <p class="muted">This is the first run. Pick a username and password to protect your tracker.</p>
+
+        <label class="field">
+          <span>Username</span>
+          <input id="setupUsername" type="text" autocomplete="username" required minlength="3" />
+        </label>
+
+        <label class="field">
+          <span>Password</span>
+          <input id="setupPassword" type="password" autocomplete="new-password" required minlength="6" />
+        </label>
+
+        <label class="field">
+          <span>Confirm password</span>
+          <input id="setupConfirm" type="password" autocomplete="new-password" required minlength="6" />
+        </label>
+
+        <p id="setupError" class="alert error" role="alert" hidden></p>
+
+        <button type="submit" class="btn primary block">Create account</button>
+      </form>
+
+      <p class="auth-foot">
+        <button type="button" id="resetBtn" class="linkbtn">Forgot password? Reset everything</button>
+      </p>
+    </section>
+    <p class="auth-note">
+      This login runs entirely in your browser. See the README for notes on hardening it.
+    </p>
+  </main>
+
+  <!-- ============================= APP ============================= -->
+  <div id="appView" hidden>
+    <header class="topbar">
+      <div class="brand small">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="18" height="18"><path d="M5 13l4 4L19 7" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </span>
+        <span class="brand-name">Issue Tracker</span>
+      </div>
+
+      <div class="topbar-actions">
+        <span class="user-chip" id="userChip">user</span>
+        <button type="button" id="themeBtn" class="btn ghost icon" title="Toggle light / dark">🌙</button>
+        <button type="button" id="exportBtn" class="btn ghost" title="Download a JSON backup">Export</button>
+        <button type="button" id="importBtn" class="btn ghost" title="Restore from a JSON backup">Import</button>
+        <button type="button" id="logoutBtn" class="btn ghost danger">Sign out</button>
+        <input type="file" id="importFile" accept="application/json,.json" hidden />
+      </div>
+    </header>
+
+    <main class="container">
+      <!-- Stats -->
+      <section class="stats" aria-label="Summary">
+        <article class="stat">
+          <span class="stat-value" id="statTotal">0</span>
+          <span class="stat-label">Total</span>
+        </article>
+        <article class="stat pending">
+          <span class="stat-value" id="statPending">0</span>
+          <span class="stat-label">Pending</span>
+        </article>
+        <article class="stat done">
+          <span class="stat-value" id="statDone">0</span>
+          <span class="stat-label">Done</span>
+        </article>
+        <article class="stat high">
+          <span class="stat-value" id="statHigh">0</span>
+          <span class="stat-label">High priority</span>
+        </article>
+      </section>
+
+      <!-- Add / edit issue -->
+      <section class="card panel">
+        <div class="panel-head">
+          <h2 id="formTitle">Add an issue</h2>
+          <p class="muted" id="formHint">Issues are added manually. Fill in the title and save.</p>
+        </div>
+
+        <form id="issueForm" class="issue-form">
+          <label class="field">
+            <span>Title <em>*</em></span>
+            <input id="issueTitle" type="text" placeholder="e.g. Login button does nothing on mobile" required maxlength="140" />
+          </label>
+
+          <label class="field">
+            <span>Description</span>
+            <textarea id="issueDescription" rows="3" placeholder="Steps to reproduce, expected result, notes…" maxlength="2000"></textarea>
+          </label>
+
+          <div class="row">
+            <label class="field">
+              <span>Priority</span>
+              <select id="issuePriority">
+                <option value="low">Low</option>
+                <option value="medium" selected>Medium</option>
+                <option value="high">High</option>
+              </select>
+            </label>
+
+            <label class="field">
+              <span>Status</span>
+              <select id="issueStatus">
+                <option value="pending" selected>Pending</option>
+                <option value="done">Done</option>
+              </select>
+            </label>
+
+            <label class="field">
+              <span>Label <small class="muted">(optional)</small></span>
+              <input id="issueLabel" type="text" placeholder="bug, feature, docs…" maxlength="40" />
+            </label>
+          </div>
+
+          <div class="form-actions">
+            <button type="submit" class="btn primary" id="issueSubmit">Add issue</button>
+            <button type="button" class="btn ghost" id="issueCancel" hidden>Cancel edit</button>
+          </div>
+        </form>
+      </section>
+
+      <!-- Toolbar -->
+      <section class="toolbar">
+        <div class="search">
+          <input type="search" id="searchInput" placeholder="Search title, description, label…" />
+        </div>
+
+        <div class="filters">
+          <div class="segmented" role="group" aria-label="Filter by status">
+            <button type="button" class="seg active" data-filter="status" data-value="all">All</button>
+            <button type="button" class="seg" data-filter="status" data-value="pending">Pending</button>
+            <button type="button" class="seg" data-filter="status" data-value="done">Done</button>
+          </div>
+
+          <select id="priorityFilter" aria-label="Filter by priority">
+            <option value="all">All priorities</option>
+            <option value="high">High</option>
+            <option value="medium">Medium</option>
+            <option value="low">Low</option>
+          </select>
+
+          <select id="sortSelect" aria-label="Sort issues">
+            <option value="newest">Newest first</option>
+            <option value="oldest">Oldest first</option>
+            <option value="priority">Priority</option>
+            <option value="title">Title (A–Z)</option>
+          </select>
+
+          <button type="button" class="btn ghost danger" id="clearDoneBtn">Clear done</button>
+        </div>
+      </section>
+
+      <!-- Issue list -->
+      <section id="issueList" class="issue-list" aria-live="polite"></section>
+
+      <div id="emptyState" class="empty" hidden>
+        <div class="empty-icon">🗂️</div>
+        <h3 id="emptyTitle">No issues yet</h3>
+        <p class="muted" id="emptyText">Add your first issue using the form above.</p>
+      </div>
+    </main>
+
+    <footer class="foot">
+      <span class="muted">Data is stored locally in this browser. Use Export for backups.</span>
+    </footer>
+  </div>
+
+  <div id="toast" class="toast" hidden></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
