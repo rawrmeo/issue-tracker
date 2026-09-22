@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="description" content="A simple issue tracker with login, pending/done tracking, and auto-deploy to GitHub and Vercel." />
+  <meta name="description" content="An issue tracker with admin/user roles. Users report issues, admins fix and close them." />
   <title>Issue Tracker</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%234f46e5'/%3E%3Cpath d='M28 52l15 15 30-32' stroke='white' stroke-width='11' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
   <link rel="stylesheet" href="styles.css" />
@@ -21,8 +21,8 @@
 
       <!-- Sign in -->
       <form id="loginForm" class="form" hidden autocomplete="on">
-        <h1>Welcome back</h1>
-        <p class="muted">Sign in to manage your issues.</p>
+        <h1>Sign in</h1>
+        <p class="muted">Sign in to report issues or fix them.</p>
 
         <label class="field">
           <span>Username</span>
@@ -37,15 +37,19 @@
         <p id="loginError" class="alert error" role="alert" hidden></p>
 
         <button type="submit" class="btn primary block">Sign in</button>
+        <p class="muted center small">Need an account? Ask an admin to create one for you.</p>
       </form>
 
       <!-- First run: create the admin account -->
       <form id="setupForm" class="form" hidden autocomplete="on">
-        <h1>Create your account</h1>
-        <p class="muted">This is the first run. Pick a username and password to protect your tracker.</p>
+        <h1>Create the admin account</h1>
+        <p class="muted">
+          This is the first run. The first account is the <strong>admin</strong> — it can add
+          users, fix issues, and mark them done.
+        </p>
 
         <label class="field">
-          <span>Username</span>
+          <span>Admin username</span>
           <input id="setupUsername" type="text" autocomplete="username" required minlength="3" />
         </label>
 
@@ -61,7 +65,7 @@
 
         <p id="setupError" class="alert error" role="alert" hidden></p>
 
-        <button type="submit" class="btn primary block">Create account</button>
+        <button type="submit" class="btn primary block">Create admin account</button>
       </form>
 
       <p class="auth-foot">
@@ -85,15 +89,19 @@
 
       <div class="topbar-actions">
         <span class="user-chip" id="userChip">user</span>
+        <span class="role-chip" id="roleChip">user</span>
         <button type="button" id="themeBtn" class="btn ghost icon" title="Toggle light / dark">🌙</button>
-        <button type="button" id="exportBtn" class="btn ghost" title="Download a JSON backup">Export</button>
-        <button type="button" id="importBtn" class="btn ghost" title="Restore from a JSON backup">Import</button>
+        <button type="button" id="exportBtn" class="btn ghost admin-only" title="Download a JSON backup">Export</button>
+        <button type="button" id="importBtn" class="btn ghost admin-only" title="Restore from a JSON backup">Import</button>
         <button type="button" id="logoutBtn" class="btn ghost danger">Sign out</button>
         <input type="file" id="importFile" accept="application/json,.json" hidden />
       </div>
     </header>
 
     <main class="container">
+      <!-- Role banner -->
+      <div id="roleBanner" class="banner" hidden></div>
+
       <!-- Stats -->
       <section class="stats" aria-label="Summary">
         <article class="stat">
@@ -103,6 +111,10 @@
         <article class="stat pending">
           <span class="stat-value" id="statPending">0</span>
           <span class="stat-label">Pending</span>
+        </article>
+        <article class="stat fixing">
+          <span class="stat-value" id="statFixing">0</span>
+          <span class="stat-label">Fixing</span>
         </article>
         <article class="stat done">
           <span class="stat-value" id="statDone">0</span>
@@ -117,7 +129,7 @@
       <!-- Add / edit issue -->
       <section class="card panel">
         <div class="panel-head">
-          <h2 id="formTitle">Add an issue</h2>
+          <h2 id="formTitle">Report an issue</h2>
           <p class="muted" id="formHint">Issues are added manually. Fill in the title and save.</p>
         </div>
 
@@ -142,10 +154,12 @@
               </select>
             </label>
 
-            <label class="field">
-              <span>Status</span>
+            <!-- Only admins may set the status directly -->
+            <label class="field" id="statusField" hidden>
+              <span>Status <small class="muted">(admin)</small></span>
               <select id="issueStatus">
                 <option value="pending" selected>Pending</option>
+                <option value="fixing">Fixing</option>
                 <option value="done">Done</option>
               </select>
             </label>
@@ -157,7 +171,7 @@
           </div>
 
           <div class="form-actions">
-            <button type="submit" class="btn primary" id="issueSubmit">Add issue</button>
+            <button type="submit" class="btn primary" id="issueSubmit">Report issue</button>
             <button type="button" class="btn ghost" id="issueCancel" hidden>Cancel edit</button>
           </div>
         </form>
@@ -166,13 +180,14 @@
       <!-- Toolbar -->
       <section class="toolbar">
         <div class="search">
-          <input type="search" id="searchInput" placeholder="Search title, description, label…" />
+          <input type="search" id="searchInput" placeholder="Search title, description, label, reporter…" />
         </div>
 
         <div class="filters">
           <div class="segmented" role="group" aria-label="Filter by status">
             <button type="button" class="seg active" data-filter="status" data-value="all">All</button>
             <button type="button" class="seg" data-filter="status" data-value="pending">Pending</button>
+            <button type="button" class="seg" data-filter="status" data-value="fixing">Fixing</button>
             <button type="button" class="seg" data-filter="status" data-value="done">Done</button>
           </div>
 
@@ -190,7 +205,7 @@
             <option value="title">Title (A–Z)</option>
           </select>
 
-          <button type="button" class="btn ghost danger" id="clearDoneBtn">Clear done</button>
+          <button type="button" class="btn ghost danger admin-only" id="clearDoneBtn">Clear done</button>
         </div>
       </section>
 
@@ -200,8 +215,49 @@
       <div id="emptyState" class="empty" hidden>
         <div class="empty-icon">🗂️</div>
         <h3 id="emptyTitle">No issues yet</h3>
-        <p class="muted" id="emptyText">Add your first issue using the form above.</p>
+        <p class="muted" id="emptyText">Report your first issue using the form above.</p>
       </div>
+
+      <!-- Users (admin only) -->
+      <section class="card panel" id="usersPanel" hidden>
+        <div class="panel-head">
+          <h2>Users</h2>
+          <p class="muted">
+            <strong>Admins</strong> can create users, fix issues and mark them done.
+            <strong>Users</strong> can only report issues and manage their own.
+          </p>
+        </div>
+
+        <form id="userForm" class="user-form">
+          <div class="row">
+            <label class="field">
+              <span>Username</span>
+              <input id="newUsername" type="text" required minlength="3" placeholder="jane" />
+            </label>
+
+            <label class="field">
+              <span>Password</span>
+              <input id="newPassword" type="password" required minlength="6" placeholder="min 6 characters" />
+            </label>
+
+            <label class="field">
+              <span>Role</span>
+              <select id="newRole">
+                <option value="user" selected>User — reports issues</option>
+                <option value="admin">Admin — fixes &amp; closes issues</option>
+              </select>
+            </label>
+          </div>
+
+          <p id="userError" class="alert error" role="alert" hidden></p>
+
+          <div class="form-actions">
+            <button type="submit" class="btn primary">Add user</button>
+          </div>
+        </form>
+
+        <div id="userList" class="user-list"></div>
+      </section>
     </main>
 
     <footer class="foot">

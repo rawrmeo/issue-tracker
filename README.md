@@ -10,20 +10,46 @@ HTML/CSS/JavaScript and runs straight in the browser.
 
 ## Features
 
-- **Login surface** — first visit creates an admin account; after that a sign-in
-  screen guards the tracker. Passwords are hashed with PBKDF2-SHA256 + a random
-  salt (Web Crypto).
-- **Add issues manually** — title (required), description, priority, status, and
-  a free-form label.
-- **Pending / Done** — mark any issue done or back to pending with one click, or
-  set the status while creating/editing it.
-- **Edit and delete** — full control over every issue.
+- **Roles** — an **admin** (who fixes issues) and **users** (who report them).
+  See [Roles and permissions](#roles-and-permissions) below.
+- **Login surface** — first visit creates the admin account; every later visit
+  requires sign-in. Passwords are hashed with PBKDF2-SHA256 + a random salt.
+- **Report issues manually** — title (required), description, priority, and a
+  free-form label.
+- **Workflow: Pending → Fixing → Done** — only an admin can move an issue along.
+- **User manager** — the admin can add users, promote/demote them, reset
+  passwords, and remove them.
 - **Filter and search** — by status, priority, and free text; sort by newest,
   oldest, priority, or title.
-- **Stats bar** — totals for all / pending / done / high-priority open issues.
-- **Export & Import** — download a JSON backup and restore or merge it later.
+- **Stats bar** — totals for all / pending / fixing / done / high-priority open.
+- **Export & Import** — admin-only JSON backup and restore.
 - **Light / dark theme** — remembers your choice.
 - **Auto-deploy** — push to GitHub and Vercel rebuilds and deploys the site.
+
+## Roles and permissions
+
+| Action | Admin | User |
+| --- | :-: | :-: |
+| Sign in | ✅ | ✅ |
+| Report a new issue | ✅ | ✅ |
+| See all issues | ✅ | ✅ |
+| Edit / delete own issues | ✅ | ✅ |
+| Edit / delete anyone's issue | ✅ | ❌ |
+| Set status to **Fixing** or **Done** | ✅ | ❌ |
+| Clear done issues | ✅ | ❌ |
+| Export / import backups | ✅ | ❌ |
+| Add / remove users, reset passwords | ✅ | ❌ |
+
+New issues always start as **Pending**. A user can never change a status — they
+report the problem, and an admin marks it **Fixing** then **Done**. Users see a
+banner explaining this, and the status control on each issue is replaced with a
+read-only coloured dot.
+
+**How accounts are created:** the first account you make is the admin. After
+that, the admin opens the **Users** panel and creates accounts for everyone
+else. There is no public sign-up. The last remaining admin cannot be demoted or
+removed, and you cannot change your own role.
+
 
 ## Files
 
@@ -31,7 +57,7 @@ HTML/CSS/JavaScript and runs straight in the browser.
 | --- | --- |
 | `index.html` | Page structure (login + app views) |
 | `styles.css` | Styling and theme |
-| `app.js` | Auth, issue logic, storage, import/export |
+| `app.js` | Auth, roles &amp; permissions, issue workflow, user manager, storage |
 | `vercel.json` | Vercel config (clean URLs, security headers) |
 | `.github/workflows/deploy.yml` | GitHub Action that deploys to Vercel on push to `main` |
 | `deploy.ps1` | Windows helper: commit + push in one command |
@@ -106,27 +132,37 @@ Then push to `main` (or use **Actions → Deploy to Vercel → Run workflow**).
 
 ## How the login works (and its limits)
 
-The login is a **client-side gate**. The account and the issues live in your
-browser's `localStorage`, and the password is stored only as a PBKDF2 hash. This
-is perfectly fine for a personal tracker on your own devices, but be aware:
+The login is a **client-side gate**. The accounts and the issues live in your
+browser's `localStorage`, and passwords are stored only as PBKDF2 hashes. That
+is fine for a tracker on your own devices, but read this carefully:
 
-- It only protects the data in *that specific browser*. Anyone who opens the
-  deployed URL on a new device will be asked to **create a fresh account**, and
-  they will only ever see their own issues — not yours.
-- It is **not** a shared multi-user login. The data does not sync between
-  devices.
-- Someone with developer tools could still read the issue list straight out of
-  the browser's storage.
+- **The roles are enforced in the browser, not on a server.** A technically
+  savvy user *could* open developer tools and give themselves the admin role.
+  The admin/user split is a workflow guard, **not** a security boundary. If you
+  need real enforcement, you need a backend — see below.
+- It only protects the data in *that specific browser*. On a brand new device,
+  the app finds no accounts and offers to create a fresh admin — and that person
+  sees their own empty, separate tracker, not yours.
+- Data does **not** sync between devices or between users. Every browser has its
+  own copy, so your admin and your users would each see their own issues.
+- Someone with developer tools could read the issue list straight out of the
+  browser's storage.
+
+**In short: this is a great personal / single-machine tracker, and the admin vs
+user split works well as a shared workflow — but it is not a secure multi-user
+system across devices.**
 
 ### Moving data between devices
 
-Use **Export** on one device and **Import** on another.
+Use **Export** on one device and **Import** on another (admin only). Note that
+this moves *issues* only — accounts are not exported.
 
 ### If you need real security later
 
-You would need a server that checks the password before sending any data. That
-requires a backend plus a hosted database (Vercel Postgres, Supabase, etc.), and
-roughly doubles the size of the project. Ask and it can be built on top of this.
+You would need a server that checks the password and the role *before* sending
+any data, plus a hosted database (Vercel Postgres, Supabase, etc.) so everyone
+sees the same issues. Ask and it can be built on top of this.
+
 
 ---
 
@@ -142,10 +178,13 @@ backup first if you care about the data).
 
 | Task | Action |
 | --- | --- |
-| Add issue | Fill the form → **Add issue** |
-| Mark done / pending | Click the checkbox on the left of an issue, or use **Edit** |
-| Find an issue | Search box, or the All / Pending / Done buttons |
-| Back up | **Export** (downloads JSON) |
-| Restore | **Import** (choose merge or replace) |
-| Remove finished work | **Clear done** |
+| Report an issue | Fill the form → **Report issue** |
+| Move an issue to Fixing / Done | Admin: use the status dropdown on the issue |
+| Edit / delete | **Edit** or **Delete** on your own issues (admin: any issue) |
+| Find an issue | Search box, or the All / Pending / Fixing / Done buttons |
+| Add a person | Admin → **Users** panel → **Add user** |
+| Reset a password | Admin → **Users** panel → **Reset password** |
+| Back up | Admin → **Export** (downloads JSON) |
+| Restore | Admin → **Import** (choose merge or replace) |
+| Remove finished work | Admin → **Clear done** |
 | Deploy changes | `.\deploy.ps1` |
