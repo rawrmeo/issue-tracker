@@ -3,280 +3,126 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="description" content="An issue tracker backed by Supabase. Reporters file issues; admins fix and close them." />
-  <title>Issue Tracker</title>
+  <meta name="description" content="Issue Tracker — sign in." />
+  <title>Sign in · Issue Tracker</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%234f46e5'/%3E%3Cpath d='M28 52l15 15 30-32' stroke='white' stroke-width='11' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
+  <script>try{if(localStorage.getItem('it.theme')==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <!-- ============================= AUTH ============================= -->
-  <main id="authView" class="auth-view">
-    <section class="card auth-card">
-      <div class="brand">
-        <span class="brand-mark" aria-hidden="true">
-          <svg viewBox="0 0 24 24" width="22" height="22"><path d="M5 13l4 4L19 7" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        </span>
-        <span class="brand-name">Issue Tracker</span>
-      </div>
 
-      <!-- Shown when supabase-config.js has not been filled in yet -->
-      <div id="configNotice" class="form" hidden>
-        <h1>Connect your database</h1>
-        <p class="muted">
-          This tracker stores everything in Supabase. There are three short steps
-          before you can sign in.
-        </p>
-        <ol class="steps">
-          <li>Create a free project at <strong>supabase.com</strong></li>
-          <li>
-            Open <strong>SQL Editor &rarr; New query</strong>, paste the whole of
-            <code>supabase/schema.sql</code>, and press <strong>Run</strong>.
-          </li>
-          <li>
-            Open <strong>Settings &rarr; API</strong> and paste your
-            <strong>Project URL</strong> and <strong>anon public</strong> key into
-            <code>supabase-config.js</code>, then reload this page.
-          </li>
-        </ol>
-        <p class="muted small">
-          Detailed walkthrough with screenshots-by-description: <code>SETUP.md</code>
-        </p>
-      </div>
-
-      <!-- Sign in -->
-      <form id="loginForm" class="form" hidden autocomplete="on">
-        <h1>Sign in</h1>
-        <p class="muted">Report an issue, or fix the ones already filed.</p>
-
-        <label class="field">
-          <span>Username</span>
-          <input id="loginUsername" name="username" type="text" autocomplete="username" required />
-        </label>
-
-        <label class="field">
-          <span>Password</span>
-          <input id="loginPassword" name="password" type="password" autocomplete="current-password" required />
-        </label>
-
-        <p id="loginError" class="alert error" role="alert" hidden></p>
-
-        <button type="submit" class="btn primary block" id="loginSubmit">Sign in</button>
-        <p class="muted center small">
-          No account yet?
-          <button type="button" class="linkbtn" id="showSignup">Create one</button>
-        </p>
-      </form>
-
-      <!-- Sign up -->
-      <form id="signupForm" class="form" hidden autocomplete="on">
-        <h1>Create an account</h1>
-        <p class="muted">
-          You will be able to report issues. An admin fixes them and marks them done.
-        </p>
-
-        <label class="field">
-          <span>Username</span>
-          <input id="signupUsername" type="text" autocomplete="username" required
-                 minlength="3" maxlength="32" pattern="[A-Za-z0-9._\-]{3,32}"
-                 title="3–32 characters: letters, numbers, dot, underscore or hyphen" />
-        </label>
-
-        <label class="field">
-          <span>Password</span>
-          <input id="signupPassword" type="password" autocomplete="new-password" required minlength="6" />
-        </label>
-
-        <label class="field">
-          <span>Confirm password</span>
-          <input id="signupConfirm" type="password" autocomplete="new-password" required minlength="6" />
-        </label>
-
-        <p id="signupError" class="alert error" role="alert" hidden></p>
-
-        <button type="submit" class="btn primary block" id="signupSubmit">Create account</button>
-        <p class="muted center small">
-          Already registered?
-          <button type="button" class="linkbtn" id="showLogin">Sign in</button>
-        </p>
-      </form>
-    </section>
-    <p class="auth-note">
-      Backed by a Supabase Postgres database. Your issues are stored in the cloud
-      and are the same on every device you sign in from.
-    </p>
-  </main>
-
-  <!-- ============================= APP ============================= -->
-  <div id="appView" hidden>
-    <header class="topbar">
-      <div class="brand small">
-        <span class="brand-mark" aria-hidden="true">
-          <svg viewBox="0 0 24 24" width="18" height="18"><path d="M5 13l4 4L19 7" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        </span>
-        <span class="brand-name">Issue Tracker</span>
-      </div>
-
-      <div class="topbar-actions">
-        <span class="user-chip" id="userChip">user</span>
-        <span class="role-chip" id="roleChip">user</span>
-        <span class="live-dot" id="liveDot" title="Live updates"></span>
-        <button type="button" id="themeBtn" class="btn ghost icon" title="Toggle light / dark">🌙</button>
-        <button type="button" id="exportBtn" class="btn ghost admin-only" title="Download the issues as JSON">Export</button>
-        <button type="button" id="logoutBtn" class="btn ghost danger">Sign out</button>
-      </div>
-    </header>
-
-    <main class="container">
-      <div id="roleBanner" class="banner" hidden></div>
-
-      <!-- Stats -->
-      <section class="stats" aria-label="Summary">
-        <article class="stat">
-          <span class="stat-value" id="statTotal">0</span>
-          <span class="stat-label">Total</span>
-        </article>
-        <article class="stat pending">
-          <span class="stat-value" id="statPending">0</span>
-          <span class="stat-label">Pending</span>
-        </article>
-        <article class="stat fixing">
-          <span class="stat-value" id="statFixing">0</span>
-          <span class="stat-label">Fixing</span>
-        </article>
-        <article class="stat done">
-          <span class="stat-value" id="statDone">0</span>
-          <span class="stat-label">Done</span>
-        </article>
-        <article class="stat high">
-          <span class="stat-value" id="statHigh">0</span>
-          <span class="stat-label">High priority</span>
-        </article>
-      </section>
-
-      <!-- Add / edit issue -->
-      <section class="card panel">
-        <div class="panel-head">
-          <h2 id="formTitle">Report an issue</h2>
-          <p class="muted" id="formHint">Issues are added manually. Fill in the title and save.</p>
-        </div>
-
-        <form id="issueForm" class="issue-form">
-          <label class="field">
-            <span>Title <em>*</em></span>
-            <input id="issueTitle" type="text" placeholder="e.g. Login button does nothing on mobile" required maxlength="140" />
-          </label>
-
-          <label class="field">
-            <span>Description</span>
-            <textarea id="issueDescription" rows="3" placeholder="Steps to reproduce, expected result, notes…" maxlength="2000"></textarea>
-          </label>
-
-          <div class="row">
-            <label class="field">
-              <span>Priority</span>
-              <select id="issuePriority">
-                <option value="low">Low</option>
-                <option value="medium" selected>Medium</option>
-                <option value="high">High</option>
-              </select>
-            </label>
-
-            <!-- Only admins may set the status directly -->
-            <label class="field" id="statusField" hidden>
-              <span>Status <small class="muted">(admin)</small></span>
-              <select id="issueStatus">
-                <option value="pending" selected>Pending</option>
-                <option value="fixing">Fixing</option>
-                <option value="done">Done</option>
-              </select>
-            </label>
-
-            <label class="field">
-              <span>Label <small class="muted">(optional)</small></span>
-              <input id="issueLabel" type="text" placeholder="bug, feature, docs…" maxlength="40" />
-            </label>
-          </div>
-
-          <div class="form-actions">
-            <button type="submit" class="btn primary" id="issueSubmit">Report issue</button>
-            <button type="button" class="btn ghost" id="issueCancel" hidden>Cancel edit</button>
-          </div>
-        </form>
-      </section>
-
-      <!-- Toolbar -->
-      <section class="toolbar">
-        <div class="search">
-          <input type="search" id="searchInput" placeholder="Search title, description, label, reporter…" />
-        </div>
-
-        <div class="filters">
-          <div class="segmented" role="group" aria-label="Filter by status">
-            <button type="button" class="seg active" data-filter="status" data-value="all">All</button>
-            <button type="button" class="seg" data-filter="status" data-value="pending">Pending</button>
-            <button type="button" class="seg" data-filter="status" data-value="fixing">Fixing</button>
-            <button type="button" class="seg" data-filter="status" data-value="done">Done</button>
-          </div>
-
-          <select id="priorityFilter" aria-label="Filter by priority">
-            <option value="all">All priorities</option>
-            <option value="high">High</option>
-            <option value="medium">Medium</option>
-            <option value="low">Low</option>
-          </select>
-
-          <select id="sortSelect" aria-label="Sort issues">
-            <option value="newest">Newest first</option>
-            <option value="oldest">Oldest first</option>
-            <option value="priority">Priority</option>
-            <option value="title">Title (A–Z)</option>
-          </select>
-
-          <button type="button" class="btn ghost danger admin-only" id="clearDoneBtn">Clear done</button>
-          <button type="button" class="btn ghost" id="refreshBtn" title="Reload from the database">Refresh</button>
-        </div>
-      </section>
-
-      <!-- Issue list -->
-      <section id="issueList" class="issue-list" aria-live="polite"></section>
-
-      <div id="emptyState" class="empty" hidden>
-        <div class="empty-icon">🗂️</div>
-        <h3 id="emptyTitle">No issues yet</h3>
-        <p class="muted" id="emptyText">Report your first issue using the form above.</p>
-      </div>
-
-      <!-- Users (admin only) -->
-      <section class="card panel" id="usersPanel" hidden>
-        <div class="panel-head">
-          <h2>Users</h2>
-          <p class="muted">
-            <strong>Admins</strong> fix issues and mark them done.
-            <strong>Users</strong> report issues. Roles are enforced by the database.
-          </p>
-        </div>
-
-        <div id="userList" class="user-list"></div>
-
-        <p class="muted small">
-          To delete an account, or to reset a forgotten password, use your Supabase
-          dashboard under <strong>Authentication &rarr; Users</strong>.
-        </p>
-      </section>
-    </main>
-
-    <footer class="foot">
-      <span class="muted">
-        Stored in your Supabase Postgres database. Live updates are on.
+<!-- ================================ AUTH ================================ -->
+<!-- Moved unchanged from the old single-page index.html. The app view that
+     used to follow this block now lives in pages/*.html behind the shell. -->
+<main id="authView" class="auth-view">
+  <section class="card auth-card">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="22" height="22"><path d="M5 13l4 4L19 7" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </span>
-    </footer>
-  </div>
+      <span class="brand-name">Issue Tracker</span>
+    </div>
 
-  <div id="toast" class="toast" hidden></div>
+    <!-- Shown when supabase-config.js has not been filled in yet -->
+    <div id="configNotice" class="form" hidden>
+      <h1>Connect your database</h1>
+      <p class="muted">
+        This tracker stores everything in Supabase. There are three short steps
+        before you can sign in.
+      </p>
+      <ol class="steps">
+        <li>Create a free project at <strong>supabase.com</strong></li>
+        <li>
+          Open <strong>SQL Editor &rarr; New query</strong>, paste the whole of
+          <code>supabase/schema.sql</code>, and press <strong>Run</strong>.
+        </li>
+        <li>
+          Open <strong>Settings &rarr; API</strong> and paste your
+          <strong>Project URL</strong> and <strong>anon public</strong> key into
+          <code>supabase-config.js</code>, then reload this page.
+        </li>
+      </ol>
+      <p class="muted small">
+        Detailed walkthrough with screenshots-by-description: <code>SETUP.md</code>
+      </p>
+    </div>
 
-  <!-- Supabase SDK (UMD build -> window.supabase), then our config and app -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="supabase-config.js"></script>
-  <script src="app.js"></script>
+    <!-- Sign in -->
+    <form id="loginForm" class="form" hidden autocomplete="on">
+      <h1>Sign in</h1>
+      <p class="muted">Report an issue, or fix the ones already filed.</p>
+
+      <label class="field">
+        <span>Username</span>
+        <input id="loginUsername" name="username" type="text" autocomplete="username" required />
+      </label>
+
+      <label class="field">
+        <span>Password</span>
+        <input id="loginPassword" name="password" type="password" autocomplete="current-password" required />
+      </label>
+
+      <p id="loginError" class="alert error" role="alert" hidden></p>
+
+      <button type="submit" class="btn primary block" id="loginSubmit">Sign in</button>
+      <p class="muted center small">
+        No account yet?
+        <button type="button" class="linkbtn" id="showSignup">Create one</button>
+      </p>
+    </form>
+
+    <!-- Sign up -->
+    <form id="signupForm" class="form" hidden autocomplete="on">
+      <h1>Create an account</h1>
+      <p class="muted">
+        You will be able to report issues. An admin fixes them and marks them done.
+      </p>
+
+      <label class="field">
+        <span>Username</span>
+        <input id="signupUsername" type="text" autocomplete="username" required
+               minlength="3" maxlength="32" pattern="[A-Za-z0-9._\-]{3,32}"
+               title="3–32 characters: letters, numbers, dot, underscore or hyphen" />
+      </label>
+
+      <label class="field">
+        <span>Password</span>
+        <input id="signupPassword" type="password" autocomplete="new-password" required minlength="6" />
+      </label>
+
+      <label class="field">
+        <span>Confirm password</span>
+        <input id="signupConfirm" type="password" autocomplete="new-password" required minlength="6" />
+      </label>
+
+      <p id="signupError" class="alert error" role="alert" hidden></p>
+
+      <button type="submit" class="btn primary block" id="signupSubmit">Create account</button>
+      <p class="muted center small">
+        Already registered?
+        <button type="button" class="linkbtn" id="showLogin">Sign in</button>
+      </p>
+    </form>
+  </section>
+  <p class="auth-note">
+    Backed by a Supabase Postgres database. Your issues are stored in the cloud
+    and are the same on every device you sign in from.
+  </p>
+</main>
+
+<div id="toast" class="toast" hidden></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase-config.js"></script>
+<script src="js/supabase.js"></script>
+<script src="js/toast.js"></script>
+<script src="js/auth.js"></script>
+<script>
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function () { window.ET.auth.initLoginPage(); });
+  } else {
+    window.ET.auth.initLoginPage();
+  }
+</script>
 </body>
 </html>
