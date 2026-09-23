@@ -60,8 +60,8 @@ Only admins can change the status of an issue
 | `supabase/schema.sql` | Tables, RLS policies, triggers — run once |
 | `SETUP.md` | Step-by-step database setup |
 | `vercel.json` | Vercel config (clean URLs, security headers) |
-| `.github/workflows/deploy.yml` | Optional CI deploy to Vercel |
 | `deploy.ps1` | Windows helper: commit + push in one command |
+| `.github/workflows/` | *removed* — Vercel's Git integration handles deploys |
 
 **Architecture:** the browser talks straight to Supabase using the public
 `anon` key. There is no server of your own to run. The database decides what
@@ -117,18 +117,19 @@ After that, every change is one command:
 
 Every push to `main` then redeploys automatically.
 
-### Optional: deploy from GitHub Actions instead
+### Manual deploy with the Vercel CLI
 
-Only needed if you'd rather not use Vercel's Git integration. Add three repo
-secrets (**Settings → Secrets and variables → Actions**):
+The CLI is installed and linked to this project, so you can also deploy
+without committing:
 
-| Secret | Where to find it |
-| --- | --- |
-| `VERCEL_TOKEN` | <https://vercel.com/account/tokens> |
-| `VERCEL_ORG_ID` | `.vercel/project.json` after `vercel link` |
-| `VERCEL_PROJECT_ID` | Same file |
+```powershell
+vercel --prod      # deploy the current folder straight to production
+vercel ls          # list deployments
+vercel logs <url>  # tail runtime logs
+```
 
-Then push to `main`, or run **Actions → Deploy to Vercel → Run workflow**.
+Useful when you want to push a change live without a commit. The normal
+route is still `.\deploy.ps1` → git push → Vercel rebuilds.
 
 ---
 
