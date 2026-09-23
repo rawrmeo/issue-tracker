@@ -49,6 +49,17 @@ $branch = (git rev-parse --abbrev-ref HEAD).Trim()
 Write-Host "Branch: $branch" -ForegroundColor Cyan
 Write-Host "Remote: $((git remote get-url origin).Trim())" -ForegroundColor Cyan
 
+# --- Make sure git knows who you are -----------------------------------------
+# Without this, `git commit` fails with "Please tell me who you are".
+if (-not (git config user.name)) {
+  git config user.name "Issue Tracker"
+  Write-Host "Set a default git user.name (change it with: git config user.name \"Your Name\")" -ForegroundColor Yellow
+}
+if (-not (git config user.email)) {
+  git config user.email "issue-tracker@users.noreply.github.com"
+  Write-Host "Set a default git user.email (change it with: git config user.email \"you@example.com\")" -ForegroundColor Yellow
+}
+
 # --- Commit ------------------------------------------------------------------
 git add -A
 
