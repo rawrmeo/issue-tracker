@@ -133,6 +133,49 @@ route is still `.\deploy.ps1` → git push → Vercel rebuilds.
 
 ---
 
+## 4. Branch workflow — `develop` → `main`
+
+Day-to-day work happens on **`develop`**. `main` is the stable, live branch
+(Vercel deploys it).
+
+```powershell
+git checkout develop      # work here
+# ... edit files, then ...
+git add -A
+git commit -m "what changed"
+```
+
+### Automatic sync (already configured)
+
+- **VS Code** — `.vscode/settings.json` sets `git.autofetch` (checks GitHub
+  every 60 seconds) and `git.postCommitCommand: "sync"` (pull + push after a
+  commit made from the Source Control panel).
+- **Terminal** — `.git/hooks/post-commit` and `.git/hooks/post-merge` push the
+  current branch after every commit / merge, so a plain `git commit` also
+  updates GitHub. If the push fails (e.g. you are offline) the commit still
+  succeeds; run `git push` manually later.
+
+`main` and `master` are deliberately **excluded** from the auto-push hook so a
+production deploy can never happen by accident. To include them, remove the
+`case "$branch" in ... esac` block at the top of `.git/hooks/post-commit`.
+
+### Promote `develop` to `main`
+
+```powershell
+git checkout main
+git pull
+git merge develop
+git push
+git checkout develop      # back to your work branch
+```
+
+Or open a pull request on GitHub: `develop` → `main` → **Merge**.
+
+> Hooks live in `.git/`, which Git does not track, so they are **not** cloned
+> to other machines. Re-create them when you set up a new PC.
+
+---
+
 ## Security
 
 Unlike the earlier localStorage version, this is a genuine multi-user system:
