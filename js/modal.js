@@ -49,10 +49,14 @@
 
       titleEl.textContent = opts.title || 'Are you sure?';
       bodyEl.textContent = message;
-      okEl.textContent = opts.okLabel || 'Confirm';
-      okEl.className = 'btn ' + (opts.danger === false ? 'primary' : 'danger');
+
+      // Swap only the colour classes — assigning className here would wipe
+      // the et-modal-ok hook and break later querySelector lookups.
+      okEl.classList.remove('primary', 'danger');
+      okEl.classList.add(opts.danger === false ? 'primary' : 'danger');
+
       cancelEl.hidden = !!opts.infoOnly;
-      okEl.textContent = opts.infoOnly ? 'OK' : okEl.textContent;
+      okEl.textContent = opts.infoOnly ? 'OK' : (opts.okLabel || 'Confirm');
 
       function cleanup() {
         okEl.removeEventListener('click', onOk);

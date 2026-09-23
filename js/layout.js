@@ -119,7 +119,12 @@
     var admin = user.role === ET.ADMIN;
     return '' +
       '<button type="button" class="btn ghost icon menu-btn" id="menuBtn" aria-label="Open menu">☰</button>' +
-      '<h1 class="topbar-title" id="pageTitle">' + ET.escapeHtml(title) + '</h1>' +
+      '<div class="topbar-heading">' +
+        '<h1 class="topbar-title" id="pageTitle">' + ET.escapeHtml(title) + '</h1>' +
+        '<span class="role-badge' + (admin ? ' is-admin' : '') + '" id="roleBadge">' +
+          (admin ? 'Admin' : 'User') +
+        '</span>' +
+      '</div>' +
       '<div class="topbar-actions">' +
         '<span class="live-dot" id="liveDot" title="Live updates"></span>' +
         '<button type="button" class="btn ghost icon" id="themeBtn" title="Toggle light / dark" aria-label="Toggle theme">🌙</button>' +
@@ -205,6 +210,12 @@
 
       applyTheme(currentTheme());
       wire();
+
+      // ADDED: admin-only status sidebar. Guarded, so pages that don't load
+      // js/sidebar.js (every page except Issues) are unaffected.
+      if (ET.sidebar && typeof ET.sidebar.mount === 'function') {
+        ET.sidebar.mount(user);
+      }
 
       document.title = (opts.title ? opts.title + ' · ' : '') + 'Issue Tracker';
       return user;

@@ -3,17 +3,16 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Issues · Issue Tracker</title>
+  <title>Fixing issues ? Issue Tracker</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%234f46e5'/%3E%3Cpath d='M28 52l15 15 30-32' stroke='white' stroke-width='11' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
   <script>try{if(localStorage.getItem('it.theme')==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
   <link rel="stylesheet" href="../styles.css" />
-  <link rel="stylesheet" href="../enhancements.css" />
   <link rel="stylesheet" href="../css/app.css" />
   <link rel="stylesheet" href="../css/pages.css" />
   <!-- ADDED: admin-only status sidebar styles -->
   <link rel="stylesheet" href="../css/sidebar.css" />
 </head>
-<body>
+<body class="admin-page" data-admin-status="fixing">
   <div class="app-shell">
     <aside class="sidebar" id="sidebar"></aside>
 
@@ -109,47 +108,6 @@
           </div>
         </section>
 
-        <!-- ===== MOVED from index.html: date filter bar (Slice 2) ===== -->
-        <section class="card panel et-datebar" id="etDateBar">
-          <div class="et-datebar-head">
-            <span class="et-datebar-title">Filter by date</span>
-            <span class="et-count" id="etDateCount">0 results</span>
-          </div>
-
-          <div class="et-datebar-row">
-            <div class="et-presets" id="etDatePresets" role="group" aria-label="Date presets">
-              <button type="button" class="et-chip" data-preset="today">Today</button>
-              <button type="button" class="et-chip" data-preset="week">This Week</button>
-              <button type="button" class="et-chip" data-preset="month">This Month</button>
-              <button type="button" class="et-chip" data-preset="lastmonth">Last Month</button>
-              <button type="button" class="et-chip" data-preset="year">This Year</button>
-            </div>
-          </div>
-
-          <div class="et-datebar-row">
-            <label class="et-field">
-              <span>Month</span>
-              <input type="month" id="etMonth" />
-            </label>
-
-            <div class="et-field">
-              <span>Custom range</span>
-              <div class="et-range">
-                <input type="date" id="etFrom" aria-label="From date" />
-                <span class="et-dash">&rarr;</span>
-                <input type="date" id="etTo" aria-label="To date" />
-              </div>
-            </div>
-
-            <button type="button" class="btn ghost et-clear" id="etDateClear" disabled>Clear date filter</button>
-          </div>
-
-          <p class="et-hint" id="etDateNote" hidden>
-            No issues were created in this date range. Try a wider range, or
-            <button type="button" class="linkbtn" id="etDateNoteClear">clear the date filter</button>.
-          </p>
-        </section>
-
         <!-- ============ MOVED from index.html: issue list ================== -->
         <section id="issueList" class="issue-list" aria-live="polite"></section>
 
@@ -176,6 +134,7 @@
        page-issues.js, which calls layout.render(). -->
   <script src="../js/sidebar.js"></script>
   <script src="../js/page-issues.js"></script>
-  <script src="../enhancements.js"></script>
+  <!-- ADDED: applies this page's status filter + Done confirmation -->
+  <script src="../js/page-admin.js"></script>
 </body>
 </html>
