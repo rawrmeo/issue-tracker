@@ -367,3 +367,32 @@ input:focus, textarea:focus, select:focus {
 /* -------------------------------- Utils -------------------------------- */
 .small { font-size: .8rem; }
 .center { text-align: center; }
+
+/* ---------------------------- Live indicator --------------------------- */
+.live-dot {
+  flex: 0 0 auto;
+  width: 9px; height: 9px; border-radius: 50%;
+  background: var(--muted); opacity: .4;
+  transition: background .3s, opacity .3s, transform .3s;
+}
+.live-dot.on { background: var(--ok); opacity: 1; }
+.live-dot.on.pulse { transform: scale(1.8); }
+
+/* ----------------------------- Steps / code ---------------------------- */
+.steps {
+  margin: 0; padding-left: 1.2rem;
+  display: grid; gap: .5rem;
+  font-size: .875rem; color: var(--muted);
+}
+.steps li { padding-left: .15rem; }
+.steps strong { color: var(--text); }
+
+code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  font-size: .84em;
+  background: var(--surface-2);
+  color: var(--text);
+  padding: .1rem .35rem;
+  border-radius: 5px;
+  word-break: break-word;
+}

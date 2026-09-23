@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="description" content="An issue tracker with admin/user roles. Users report issues, admins fix and close them." />
+  <meta name="description" content="An issue tracker backed by Supabase. Reporters file issues; admins fix and close them." />
   <title>Issue Tracker</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%234f46e5'/%3E%3Cpath d='M28 52l15 15 30-32' stroke='white' stroke-width='11' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
   <link rel="stylesheet" href="styles.css" />
@@ -19,10 +19,34 @@
         <span class="brand-name">Issue Tracker</span>
       </div>
 
+      <!-- Shown when supabase-config.js has not been filled in yet -->
+      <div id="configNotice" class="form" hidden>
+        <h1>Connect your database</h1>
+        <p class="muted">
+          This tracker stores everything in Supabase. There are three short steps
+          before you can sign in.
+        </p>
+        <ol class="steps">
+          <li>Create a free project at <strong>supabase.com</strong></li>
+          <li>
+            Open <strong>SQL Editor &rarr; New query</strong>, paste the whole of
+            <code>supabase/schema.sql</code>, and press <strong>Run</strong>.
+          </li>
+          <li>
+            Open <strong>Settings &rarr; API</strong> and paste your
+            <strong>Project URL</strong> and <strong>anon public</strong> key into
+            <code>supabase-config.js</code>, then reload this page.
+          </li>
+        </ol>
+        <p class="muted small">
+          Detailed walkthrough with screenshots-by-description: <code>SETUP.md</code>
+        </p>
+      </div>
+
       <!-- Sign in -->
       <form id="loginForm" class="form" hidden autocomplete="on">
         <h1>Sign in</h1>
-        <p class="muted">Sign in to report issues or fix them.</p>
+        <p class="muted">Report an issue, or fix the ones already filed.</p>
 
         <label class="field">
           <span>Username</span>
@@ -36,44 +60,49 @@
 
         <p id="loginError" class="alert error" role="alert" hidden></p>
 
-        <button type="submit" class="btn primary block">Sign in</button>
-        <p class="muted center small">Need an account? Ask an admin to create one for you.</p>
+        <button type="submit" class="btn primary block" id="loginSubmit">Sign in</button>
+        <p class="muted center small">
+          No account yet?
+          <button type="button" class="linkbtn" id="showSignup">Create one</button>
+        </p>
       </form>
 
-      <!-- First run: create the admin account -->
-      <form id="setupForm" class="form" hidden autocomplete="on">
-        <h1>Create the admin account</h1>
+      <!-- Sign up -->
+      <form id="signupForm" class="form" hidden autocomplete="on">
+        <h1>Create an account</h1>
         <p class="muted">
-          This is the first run. The first account is the <strong>admin</strong> — it can add
-          users, fix issues, and mark them done.
+          You will be able to report issues. An admin fixes them and marks them done.
         </p>
 
         <label class="field">
-          <span>Admin username</span>
-          <input id="setupUsername" type="text" autocomplete="username" required minlength="3" />
+          <span>Username</span>
+          <input id="signupUsername" type="text" autocomplete="username" required
+                 minlength="3" maxlength="32" pattern="[A-Za-z0-9._\-]{3,32}"
+                 title="3–32 characters: letters, numbers, dot, underscore or hyphen" />
         </label>
 
         <label class="field">
           <span>Password</span>
-          <input id="setupPassword" type="password" autocomplete="new-password" required minlength="6" />
+          <input id="signupPassword" type="password" autocomplete="new-password" required minlength="6" />
         </label>
 
         <label class="field">
           <span>Confirm password</span>
-          <input id="setupConfirm" type="password" autocomplete="new-password" required minlength="6" />
+          <input id="signupConfirm" type="password" autocomplete="new-password" required minlength="6" />
         </label>
 
-        <p id="setupError" class="alert error" role="alert" hidden></p>
+        <p id="signupError" class="alert error" role="alert" hidden></p>
 
-        <button type="submit" class="btn primary block">Create admin account</button>
+        <button type="submit" class="btn primary block" id="signupSubmit">Create account</button>
+        <p class="muted center small">
+          Already registered?
+          <button type="button" class="linkbtn" id="showLogin">Sign in</button>
+        </p>
       </form>
-
-      <p class="auth-foot">
-        <button type="button" id="resetBtn" class="linkbtn">Forgot password? Reset everything</button>
-      </p>
     </section>
     <p class="auth-note">
-      This login runs entirely in your browser. See the README for notes on hardening it.
+      Backed by a Supabase Postgres database. Your issues are stored in the cloud
+      and are the same on every device you sign in from.
     </p>
   </main>
 
@@ -90,16 +119,14 @@
       <div class="topbar-actions">
         <span class="user-chip" id="userChip">user</span>
         <span class="role-chip" id="roleChip">user</span>
+        <span class="live-dot" id="liveDot" title="Live updates"></span>
         <button type="button" id="themeBtn" class="btn ghost icon" title="Toggle light / dark">🌙</button>
-        <button type="button" id="exportBtn" class="btn ghost admin-only" title="Download a JSON backup">Export</button>
-        <button type="button" id="importBtn" class="btn ghost admin-only" title="Restore from a JSON backup">Import</button>
+        <button type="button" id="exportBtn" class="btn ghost admin-only" title="Download the issues as JSON">Export</button>
         <button type="button" id="logoutBtn" class="btn ghost danger">Sign out</button>
-        <input type="file" id="importFile" accept="application/json,.json" hidden />
       </div>
     </header>
 
     <main class="container">
-      <!-- Role banner -->
       <div id="roleBanner" class="banner" hidden></div>
 
       <!-- Stats -->
@@ -206,6 +233,7 @@
           </select>
 
           <button type="button" class="btn ghost danger admin-only" id="clearDoneBtn">Clear done</button>
+          <button type="button" class="btn ghost" id="refreshBtn" title="Reload from the database">Refresh</button>
         </div>
       </section>
 
@@ -223,50 +251,32 @@
         <div class="panel-head">
           <h2>Users</h2>
           <p class="muted">
-            <strong>Admins</strong> can create users, fix issues and mark them done.
-            <strong>Users</strong> can only report issues and manage their own.
+            <strong>Admins</strong> fix issues and mark them done.
+            <strong>Users</strong> report issues. Roles are enforced by the database.
           </p>
         </div>
 
-        <form id="userForm" class="user-form">
-          <div class="row">
-            <label class="field">
-              <span>Username</span>
-              <input id="newUsername" type="text" required minlength="3" placeholder="jane" />
-            </label>
-
-            <label class="field">
-              <span>Password</span>
-              <input id="newPassword" type="password" required minlength="6" placeholder="min 6 characters" />
-            </label>
-
-            <label class="field">
-              <span>Role</span>
-              <select id="newRole">
-                <option value="user" selected>User — reports issues</option>
-                <option value="admin">Admin — fixes &amp; closes issues</option>
-              </select>
-            </label>
-          </div>
-
-          <p id="userError" class="alert error" role="alert" hidden></p>
-
-          <div class="form-actions">
-            <button type="submit" class="btn primary">Add user</button>
-          </div>
-        </form>
-
         <div id="userList" class="user-list"></div>
+
+        <p class="muted small">
+          To delete an account, or to reset a forgotten password, use your Supabase
+          dashboard under <strong>Authentication &rarr; Users</strong>.
+        </p>
       </section>
     </main>
 
     <footer class="foot">
-      <span class="muted">Data is stored locally in this browser. Use Export for backups.</span>
+      <span class="muted">
+        Stored in your Supabase Postgres database. Live updates are on.
+      </span>
     </footer>
   </div>
 
   <div id="toast" class="toast" hidden></div>
 
+  <!-- Supabase SDK (UMD build -> window.supabase), then our config and app -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase-config.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
