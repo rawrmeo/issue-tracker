@@ -1,0 +1,20 @@
+{
+  // Ask GitHub for new commits every 60 seconds
+  "git.autofetch": true,
+  "git.autofetchPeriod": 60,
+
+  // After every commit in VS Code: pull then push automatically
+  "git.postCommitCommand": "sync",
+  "git.confirmSync": false,
+
+  // Commit all changed files with one click of the check mark
+  "git.enableSmartCommit": true,
+  "git.smartCommitChanges": "all",
+
+  // Show the current branch in the status bar
+  "git.showActionButton": {
+    "commit": true,
+    "publish": true,
+    "sync": true
+  }
+}
