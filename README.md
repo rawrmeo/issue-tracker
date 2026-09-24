@@ -1,198 +1,175 @@
 # Issue Tracker
 
-A role-based issue tracking system. Two kinds of account:
+An issue tracker with a real login, pending/fixing/done workflow, and
+admin/user roles — backed by a **Supabase PostgreSQL database** so your data is
+shared across every device.
 
-| Role | Can do |
-| --- | --- |
-| **Administrator** | Everything: report, **edit**, **delete**, search, change status, and manage users (promote/demote). |
-| **Normal user** | Report issues — each one starts as **None** — and search. Cannot change a status, edit details, or delete. |
+Reporters file issues. Admins fix them and mark them done. That rule is
+enforced by the **database**, not by the browser.
 
-The rules are enforced in **both** places: the interface hides what a role
-cannot do, and the database (Row Level Security + triggers) rejects it anyway.
-
----
-
-## What's in this folder
-
-| File | What it is |
-| --- | --- |
-| `index.html` | The whole app — login, dashboard, issues, users. Open it in a browser. |
-| `supabase-schema.sql` | The database: tables, triggers and security policies. Paste it into Supabase. |
-| `supabase/` | The same schema as a migration, plus a Supabase setup guide. |
-| `PUBLISHING.md` | How to put it online for free — GitHub Pages or Vercel. |
-| `vercel.json` | Ready-made Vercel config (static site, no build step). |
-| `steps/` | Older tutorial versions of the tracker, kept for reference. |
-
-`index.html` is also its own setup guide: the **Connect Supabase** button
-(banner or setup panel) shows the same SQL with a copy button.
+**➡️ First time here? Follow [`SETUP.md`](SETUP.md) to connect your database.**
 
 ---
 
-## Running it in 30 seconds (no setup)
+## Features
 
-Just open `index.html` in a browser.
+- **Real accounts** — sign-in is verified server-side by Supabase Auth.
+- **Roles** — `admin` (fixes issues) and `user` (reports issues).
+- **Workflow: Pending → Fixing → Done** — only an admin can move an issue along.
+- **Live updates** — new issues appear on everyone's screen without refreshing.
+- **Filter and search** — by status, priority, and free text; sort several ways.
+- **Stats bar** — total / pending / fixing / done / high-priority open.
+- **Export** — admin can download every issue as JSON.
+- **Light / dark theme.**
+- **No build step** — plain HTML/CSS/JS, deploys to Vercel as-is.
 
-Because no database is connected yet, it runs in **demo mode** and keeps
-everything in that browser's local storage. Two accounts are ready:
+## Roles and permissions
 
-| Email | Password | Role |
-| --- | --- | --- |
-| `admin@demo.com` | `admin123` | Administrator |
-| `user@demo.com` | `user123` | Normal user |
+| Action | Admin | User |
+| --- | :-: | :-: |
+| Sign in, see all issues | ✅ | ✅ |
+| Report a new issue | ✅ | ✅ |
+| Edit / delete own issues | ✅ | ✅ |
+| Edit / delete anyone's issue | ✅ | ❌ |
+| Set status to **Fixing** or **Done** | ✅ | ❌ |
+| Clear done issues | ✅ | ❌ |
+| Promote / demote users | ✅ | ❌ |
+| Export issues | ✅ | ❌ |
 
-Log in as each one to see how the permissions differ. Anything you create in
-demo mode stays on that one browser — it is not shared with anyone else.
+New issues always start as **Pending**. A reporter can never change a status.
+A user sees a banner explaining this, and each issue's status dropdown is
+replaced with a read-only coloured dot.
 
----
+**Where the rule is enforced:** Row Level Security decides *which rows* you may
+update — but not *which columns*. So the headline rule lives in a `BEFORE
+UPDATE` trigger called `issues_guard` in `supabase/schema.sql`. Even if somebody
+edits `app.js` in their browser and crafts a raw API call, they still get:
 
-## Connecting a real Supabase database
-
-Do this when you want real accounts and one shared board for everyone.
-
-1. **Create the project.** Sign up at [supabase.com](https://supabase.com)
-   and create a free project.
-
-2. **Create the tables.** In the project, open **SQL Editor → New query**,
-   paste the whole of `supabase-schema.sql`, and press **Run**. You should see
-   *Success. No rows returned*. The file is safe to run more than once.
-
-3. **Copy your keys.** Open **Project Settings → API** and copy:
-   - the **Project URL** (looks like `https://abcdefgh.supabase.co`)
-   - the **anon public** key
-
-4. **Paste them into the app.** Open `index.html` and fill in the two
-   variables near the top of the `<script>` block:
-
-   ```js
-   var SUPABASE_URL      = "https://abcdefgh.supabase.co";
-   var SUPABASE_ANON_KEY = "eyJhbGciOi...";
-   ```
-
-5. **Reload the page.** The demo banner disappears and you can register.
-   Creating an account now works across every browser, and your issues are
-   shared.
-
-### About the anon key
-
-It is designed to be public and is safe in this file. Supabase protects your
-data with Row Level Security, not by hiding the key.
-
-### Make yourself an admin
-
-If you already registered as a normal user, open the SQL Editor and run:
-
-```sql
-update public.profiles set role = 'admin' where email = 'you@example.com';
+```
+Only admins can change the status of an issue
 ```
 
-You can also register as an Administrator from the start — the register form
-has a role picker. Note that letting anyone self-register as an admin is fine
-for a class project, but in production you would lock that down and promote
-people from the Users screen instead.
+## Files
 
----
-
-## Putting it online
-
-The app is one static file, so hosting is free and quick.
-[`PUBLISHING.md`](PUBLISHING.md) walks through both hosts step by step:
-
-- **GitHub Pages** — simplest; gives you a URL like
-  `https://YOUR-USERNAME.github.io/mini-issue-tracker/`.
-- **Vercel** — imports the same GitHub repo, redeploys on every push, and gives
-  each change its own preview URL. The included `vercel.json` needs no editing.
-
-Either way, if you are using Supabase, add the live URL to Supabase's
-**Authentication → URL Configuration** so password-reset links return to it.
-
----
-
-## Using the app
-
-**The avatar menu (top right)** is where personal things live:
-
-| Menu item | What it does |
+| File | Purpose |
 | --- | --- |
-| **My Profile** | Your name and picture (both editable), plus your email and role. |
-| **My Issues** | The issues you reported. |
-| **Notifications** | Activity feed, with unread highlighting. The bell shows the count. |
-| **Settings** | Notification preferences — what you want to be told about. |
-| **Sign Out** | Logs you out. |
+| `index.html` | Page structure (auth + app views) |
+| `styles.css` | Styling and theme |
+| `app.js` | UI, Supabase client calls, permissions for the UI |
+| `supabase-config.js` | **Your** project URL + anon key (you fill this in) |
+| `supabase/schema.sql` | Tables, RLS policies, triggers — run once |
+| `SETUP.md` | Step-by-step database setup |
+| `vercel.json` | Vercel config (clean URLs, security headers) |
+| `deploy.ps1` | Windows helper: commit + push in one command |
+| `.github/workflows/` | *removed* — Vercel's Git integration handles deploys |
 
-- **Dashboard** — every issue, with counts for Total / Pending / Done / None /
-  High priority.
-- **My reports** — only the issues you reported.
-- **Statistics** *(everyone)* — totals, completion rate, breakdowns by status and
-  priority, top reporters, and a 14-day activity chart. Read-only.
-- **Reports** *(admins only)* — filter by date range and status, then
-  **Print / Save as PDF** or **Download CSV**.
-- **Users** *(admins only)* — change a role inline, **edit** a user (name and
-  role), or **delete** them. You cannot change your own role or delete your own
-  account, so you cannot lock yourself out. Deleting a user keeps their issues
-  on the board.
-- **Settings** *(admins only)* — download a **JSON backup** (restorable) or a
-  **CSV** for Excel, restore from a JSON backup (add or replace), delete all
-  issues, and see system status.
-- **Search** — matches the title, description and reporter. The priority
-  dropdown narrows the list further.
-- **Status** — pick **Pending**, **Done** or **None** from the dropdown.
-  **Admins only**: a normal user reports an issue (it starts as **None**) and
-  cannot change it afterwards.
-- **Edit / delete** — the two icons on the right of a row, admins only.
-- **Log out** — the button in the sidebar, under your name.
+**Architecture:** the browser talks straight to Supabase using the public
+`anon` key. There is no server of your own to run. The database decides what
+each person may do, which is why the anon key being public is harmless.
 
 ---
 
-## Notifications
+## 1. Run it locally
 
-There's no separate notifications table — the feed is **derived from the issues**
-you can already see, using three rules you control in **Settings**:
+The database must be set up first — see [`SETUP.md`](SETUP.md).
 
-| Preference | Notifies you about |
+Then serve the folder over HTTP (don't just double-click `index.html`, because
+`file://` origins can be blocked by CORS when calling Supabase):
+
+```powershell
+python -m http.server 8000
+```
+
+Open **http://localhost:8000**.
+
+## 2. Put it on GitHub
+
+```powershell
+git init
+git branch -M main
+git add -A
+git commit -m "Issue tracker backed by Supabase"
+```
+
+Create an empty repo on GitHub (no README, no .gitignore), then:
+
+```powershell
+git remote add origin https://github.com/<your-username>/<your-repo>.git
+git push -u origin main
+```
+
+After that, every change is one command:
+
+```powershell
+.\deploy.ps1
+.\deploy.ps1 -Message "add priority filter"
+```
+
+> `supabase-config.js` **is** committed on purpose. The anon key is meant to be
+> public. Never commit a `service_role` key.
+
+## 3. Connect Vercel (auto-deploy)
+
+1. Sign in at <https://vercel.com> with GitHub.
+2. **Add New → Project → Import** your repository.
+3. Framework Preset: **Other**. Leave build command and output directory empty.
+4. **Deploy**.
+
+Every push to `main` then redeploys automatically.
+
+### Manual deploy with the Vercel CLI
+
+The CLI is installed and linked to this project, so you can also deploy
+without committing:
+
+```powershell
+vercel --prod      # deploy the current folder straight to production
+vercel ls          # list deployments
+vercel logs <url>  # tail runtime logs
+```
+
+Useful when you want to push a change live without a commit. The normal
+route is still `.\deploy.ps1` → git push → Vercel rebuilds.
+
+---
+
+## Security
+
+Unlike the earlier localStorage version, this is a genuine multi-user system:
+
+- **Passwords** are hashed and verified by Supabase Auth. Your app never sees
+  them.
+- **Row Level Security** is on for both tables, so an unauthenticated visitor
+  can read nothing.
+- **Roles** cannot be self-assigned. The `handle_new_user` trigger *computes*
+  the role and never trusts client-supplied data, so nobody can register
+  themselves as an admin.
+- **Status changes** are blocked for non-admins by the `issues_guard` trigger.
+- **The anon key is safe to publish.** It only grants what RLS allows.
+
+Things to keep in mind:
+
+- **Whoever registers first becomes the admin.** Set up your admin account
+  immediately after running the schema (see `SETUP.md` Step 6).
+- Anyone who can reach the URL can **create a reporter account** and file
+  issues. If that's not what you want, turn off *Allow new users to sign up* in
+  **Authentication → Sign In / Providers** once your team is registered — but
+  note that new people would then need an admin to add them from the dashboard.
+- **Project Settings → API** also shows a `service_role` key. That one is a
+  master key and bypasses all security. It must never appear in any file in
+  this repo.
+
+---
+
+## Quick reference
+
+| Task | Action |
 | --- | --- |
-| New issues reported by others | Issues created by someone else |
-| Issues marked as done | Anything that has reached Done |
-| Open high-priority issues | Anything still open and marked High |
-
-The bell shows how many entries are newer than the last time you marked them
-read. **Mark all as read** stores that timestamp on your profile, so the count
-follows you between devices.
-
-Because the feed is derived rather than event-logged, it reflects the *current*
-state of the board — an issue that was reopened no longer appears under "marked
-as done". A true event log would need its own table.
-
-## Backup and restore
-
-The **Settings** page (admins only) handles day-to-day backup:
-
-- **Export** writes every issue to a JSON file (the one you restore from) plus
-  a CSV for spreadsheets.
-- **Restore** reads that JSON and either **adds** the issues or **replaces**
-  the whole board.
-- Restored issues keep their original reporter in the *Reported by* column, but
-  the row is owned by the admin who imported it — the database requires the
-  inserting user to be the owner.
-
-Backups cover **issues only**, not user accounts (those live in Supabase's
-`auth.users`). For a complete database backup use Supabase →
-**Database → Backups** in the dashboard.
-
-## How the security works
-
-- Each user gets a row in `profiles` holding their **role**, created
-  automatically when they sign up (the role they chose is passed through in
-  the sign-up metadata).
-- `issues` are readable by any signed-in user, but:
-  - inserting stamps the issue with your own user id,
-  - a normal user may only update a row they reported, and a trigger
-    (`guard_issue_update`) refuses any change other than the status,
-  - deleting is admin-only,
-  - changing a **role** is admin-only (`guard_profile_role`).
-- **Deleting a user** is the one thing a browser cannot do directly — it needs
-  the service key, which must never be in a web page. Instead the SQL defines
-  `admin_delete_user()`, a `SECURITY DEFINER` function that checks you are an
-  admin *inside the database* and then removes the auth user. Their issues stay,
-  with the reporter link cleared.
-- Those triggers mean a hand-crafted request from the browser can't do more
-  than the buttons allow.
+| Report an issue | Fill the form → **Report issue** |
+| Move to Fixing / Done | Admin: use the status dropdown on the issue |
+| Edit / delete | **Edit** / **Delete** on your own issues (admin: any) |
+| Find an issue | Search box, or the All / Pending / Fixing / Done buttons |
+| Promote a reporter | Admin → **Users** → **Make admin** |
+| See the raw data | Supabase dashboard → **Table Editor** |
+| Back up | Admin → **Export**, or Supabase → Database → Backups |
+| Deploy changes | `.\deploy.ps1` |

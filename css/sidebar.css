@@ -1,0 +1,93 @@
+/* ============================================================================
+ * css/sidebar.css
+ * ----------------------------------------------------------------------------
+ * Styles for the ADMIN-ONLY sidebar section built by js/sidebar.js, plus the
+ * topbar role badge, plus the body.role-user safety net.
+ *
+ * Additive only. styles.css and css/app.css are not modified.
+ * ========================================================================= */
+
+/* ----------------------- admin nav section in the sidebar -------------- */
+#admin-sidebar { margin-top: .35rem; display: block; }
+
+.as-title {
+  font-size: .68rem;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: .95rem .7rem .35rem;
+}
+
+.as-nav { display: grid; gap: .15rem; }
+
+.as-link {
+  display: flex;
+  align-items: center;
+  gap: .65rem;
+  padding: .5rem .7rem;
+  border-radius: 10px;
+  color: var(--muted);
+  text-decoration: none;
+  font-weight: 550;
+  font-size: .9rem;
+  transition: background .15s, color .15s;
+}
+.as-link:hover { background: var(--surface-2); color: var(--text); }
+.as-link.active { background: var(--accent-soft); color: var(--accent); font-weight: 650; }
+
+.as-icon { width: 20px; text-align: center; flex: 0 0 auto; font-size: 1rem; line-height: 1; }
+
+.as-sep { height: 1px; background: var(--border); margin: .6rem .35rem; }
+
+/* --------------------------- topbar role badge ------------------------- */
+.topbar-heading {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  margin-right: auto;
+  min-width: 0;
+}
+.topbar-heading .topbar-title { margin-right: 0; }
+
+.role-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  font-size: .66rem;
+  font-weight: 750;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  padding: .22rem .55rem;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--muted);
+  border: 1px solid var(--border);
+  white-space: nowrap;
+}
+.role-badge::before {
+  content: "";
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  flex: 0 0 auto;
+}
+.role-badge.is-admin {
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-color: transparent;
+}
+
+/* ------------------- admin pages: hide the add-issue form -------------- */
+/* The admin status pages are for SETTLING issues; the report form lives on
+   the Issues page. Kept in the DOM (page-issues.js needs it) but hidden. */
+body.admin-page #issueFormPanel { display: none !important; }
+
+/* ------------------------- role safety net ----------------------------- */
+/* Hiding the UI is not security — supabase/schema.sql's issues_guard trigger
+   is the real lock (see sql/admin_status_policy.sql). This is cosmetic. */
+body.role-user #admin-sidebar,
+body.role-user #clearDoneBtn,
+body.role-user #exportBtn,
+body.role-user #usersPanel,
+body.role-user #statusField { display: none !important; }

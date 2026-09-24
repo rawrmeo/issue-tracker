@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Users · Issue Tracker</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%234f46e5'/%3E%3Cpath d='M28 52l15 15 30-32' stroke='white' stroke-width='11' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
+  <script>try{if(localStorage.getItem('it.theme')==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
+  <link rel="stylesheet" href="../styles.css" />
+  <link rel="stylesheet" href="../css/app.css" />
+  <link rel="stylesheet" href="../css/pages.css" />
+  <!-- ADDED: admin-only sidebar + role badge -->
+  <link rel="stylesheet" href="../css/sidebar.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar"></aside>
+
+    <div class="main">
+      <header class="topbar" id="topbar"></header>
+
+      <main class="page-content">
+        <div class="page-head">
+          <h2>Users</h2>
+          <p><strong>Admins</strong> fix issues and mark them done. <strong>Users</strong> report issues. Roles are enforced by the database.</p>
+        </div>
+
+        <!-- ============ MOVED from index.html: the Users panel ============= -->
+        <section class="card panel" id="usersPanel">
+          <div class="panel-head">
+            <h2>All accounts <span class="muted" id="userCount">0</span></h2>
+            <p class="muted">
+              Use the button on each row to promote or demote. To delete an account,
+              or to reset a forgotten password, use your Supabase dashboard under
+              <strong>Authentication &rarr; Users</strong>.
+            </p>
+          </div>
+
+          <div id="userList" class="user-list"></div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <div class="backdrop" id="backdrop" hidden></div>
+  <div id="toast" class="toast" hidden></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="../supabase-config.js"></script>
+  <script src="../js/supabase.js"></script>
+  <script src="../js/toast.js"></script>
+  <script src="../js/modal.js"></script>
+  <script src="../js/auth.js"></script>
+  <script src="../js/layout.js"></script>
+  <!-- ADDED: admin-only sidebar (renders only for admins) -->
+  <script src="../js/sidebar.js"></script>
+  <script src="../js/page-users.js"></script>
+</body>
+</html>
