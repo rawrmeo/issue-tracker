@@ -36,6 +36,24 @@
 
   var filters = { status: 'all', priority: 'all', q: '', sort: 'newest' };
 
+  /* An issue that is not done and has been open a week or more. */
+  var STALE_DAYS = 7;
+  function openDays(issue) {
+    if (!issue || !issue.createdAt) return 0;
+    return Math.floor((Date.now() - issue.createdAt) / 86400000);
+  }
+  function isStale(issue) {
+    return issue.status !== 'done' && openDays(issue) >= STALE_DAYS;
+  }
+
+  /* Admin bulk-action selection. */
+  var selection = {};
+  function selectedIds() {
+    return Object.keys(selection).filter(function (id) {
+      return issues.some(function (i) { return i.id === id; });
+    });
+  }
+
   var isAdmin = function () { return ET.auth.isAdmin(); };
   var currentUser = function () { return ET.auth.user; };
   var canManage = function (issue) {
@@ -71,7 +89,9 @@
       authorId: row.author_id,
       createdAt: Date.parse(row.created_at) || 0,
       updatedAt: Date.parse(row.updated_at) || 0,
-      completedAt: row.completed_at ? Date.parse(row.completed_at) : null
+      completedAt: row.completed_at ? Date.parse(row.completed_at) : null,
+      adminNote: row.admin_note || '',
+      adminNoteAt: row.admin_note_at ? Date.parse(row.admin_note_at) : 0
     };
   }
 
@@ -155,11 +175,28 @@
     $('issueCancel').hidden = true;
     $('formTitle').textContent = isAdmin() ? 'Add an issue' : 'Report an issue';
     $('formHint').textContent = formHintText();
+
+    ['issueTitle', 'issueDescription', 'issueLabel', 'issuePriority'].forEach(function (id) {
+      var field = $(id);
+      if (field) field.disabled = false;
+    });
+    var noteField = $('noteField');
+    if (noteField) noteField.hidden = true;
+    var noteBox = $('issueNote');
+    if (noteBox) noteBox.value = '';
+    var lockBox = $('lockNote');
+    if (lockBox) { lockBox.hidden = true; lockBox.textContent = ''; }
   }
 
   function startEdit(id) {
     var issue = issues.filter(function (i) { return i.id === id; })[0];
     if (!issue || !canManage(issue)) return;
+
+    var u = ET.auth.user;
+    /* Once reported, the reporter's own words are kept — nobody rewrites the
+       title and description of someone else's report. The status and priority
+       are still managed by an admin, who can also leave a message. */
+    var lockText = !(u && issue.authorId === u.id);
 
     editingId = id;
     $('issueTitle').value = issue.title;
@@ -167,13 +204,33 @@
     $('issuePriority').value = issue.priority;
     $('issueStatus').value = issue.status;
     $('issueLabel').value = issue.label || '';
+
+    $('issueTitle').disabled = lockText;
+    $('issueDescription').disabled = lockText;
+    $('issueLabel').disabled = lockText;
+    $('issuePriority').disabled = false;
+
+    var lockBox = $('lockNote');
+    if (lockBox) {
+      lockBox.hidden = !lockText;
+      lockBox.textContent = lockText
+        ? 'Reported by ' + authorName(issue.authorId) +
+          '. The title and description are kept as written — you can set the status, the priority, and leave a message.'
+        : '';
+    }
+
+    var noteField = $('noteField');
+    if (noteField) noteField.hidden = !isAdmin();
+    var noteBox = $('issueNote');
+    if (noteBox) noteBox.value = issue.adminNote || '';
+
     $('issueSubmit').textContent = 'Save changes';
     $('issueCancel').hidden = false;
     $('formTitle').textContent = 'Edit issue';
     $('formHint').textContent = isAdmin()
-      ? 'Update the details or change the status, then save.'
+      ? 'Set the status or priority, and leave a message for the reporter.'
       : 'Update your report, then save.';
-    $('issueTitle').focus();
+    if (!lockText) $('issueTitle').focus();
     var panel = document.querySelector('#issueFormPanel');
     if (panel) panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
@@ -199,10 +256,23 @@
     button.disabled = true;
     try {
       if (editingId) {
-        var patch = Object.assign({}, base);
-        // The database rejects this for non-admins anyway; not sending it
-        // keeps the request honest.
+        var current = issues.filter(function (i) { return i.id === editingId; })[0];
+        var iAmAuthor = !!current && !!u && current.authorId === u.id;
+
+        // Only the reporter may rewrite the report itself; an admin still
+        // triages priority. (Status is added below, admins only.)
+        var patch = iAmAuthor ? Object.assign({}, base) : { priority: base.priority };
         if (isAdmin()) patch.status = $('issueStatus').value;
+
+        // A message for the reporter — only sent when an admin changed it.
+        if (isAdmin() && !$('noteField').hidden) {
+          var note = $('issueNote').value.trim();
+          var prevNote = current ? (current.adminNote || '') : '';
+          if (note !== prevNote) {
+            patch.admin_note = note;
+            patch.admin_note_at = new Date().toISOString();
+          }
+        }
 
         var upd = await sb.from('issues').update(patch).eq('id', editingId);
         if (upd.error) { toast(ET.friendlyError(upd.error)); return; }
@@ -321,6 +391,21 @@
     var mine = !!u && issue.authorId === u.id;
     var status = issue.status;
 
+    var check = admin
+      ? '<input type="checkbox" class="issue-check" data-action="select" value="' + escapeHtml(issue.id) + '"' +
+          (selection[issue.id] ? ' checked' : '') + ' aria-label="Select this issue" />'
+      : '';
+
+    var stale = isStale(issue)
+      ? '<span class="stale-badge" title="Open for ' + openDays(issue) + ' days">Open ' + openDays(issue) + 'd</span>'
+      : '';
+
+    var adminNote = (issue.adminNote && (mine || admin))
+      ? '<div class="admin-note"><b>Message from admin:</b> ' + escapeHtml(issue.adminNote) +
+          (issue.adminNoteAt ? '<span class="when">' + escapeHtml(ET.timeAgo(issue.adminNoteAt)) + '</span>' : '') +
+        '</div>'
+      : '';
+
     var statusControl = admin
       ? '<select class="status-select status-' + status + '" data-action="status" aria-label="Set status">' +
           STATUSES.map(function (s) {
@@ -351,10 +436,12 @@
         ' data-status="' + escapeHtml(status) + '"' +
         ' data-priority="' + escapeHtml(issue.priority) + '">' +
         '<div class="issue-top">' +
+          check +
           statusControl +
           '<div class="issue-body">' +
-            '<div class="issue-title">' + escapeHtml(issue.title) + '</div>' +
+            '<div class="issue-title">' + escapeHtml(issue.title) + ' ' + stale + '</div>' +
             description +
+            adminNote +
             '<div class="issue-meta">' +
               '<span class="badge ' + escapeHtml(issue.priority) + '">' + escapeHtml(issue.priority) + '</span>' +
               label +
@@ -369,7 +456,70 @@
     );
   }
 
+  /* ---------------------------- bulk actions ----------------------------- */
+
+  function pruneSelection() {
+    var live = {};
+    issues.forEach(function (i) { if (selection[i.id]) live[i.id] = true; });
+    selection = live;
+  }
+
+  function updateBulkBar() {
+    var bar = $('bulkBar');
+    if (!bar) return;
+    if (!isAdmin()) { bar.hidden = true; return; }
+    var ids = selectedIds();
+    var count = $('bulkCount');
+    if (count) count.textContent = ids.length + ' selected';
+    bar.hidden = ids.length === 0;
+  }
+
+  async function bulkApplyStatus() {
+    if (!isAdmin()) return;
+    var ids = selectedIds();
+    if (!ids.length) return;
+    var status = $('bulkStatus').value;
+    if (STATUSES.indexOf(status) === -1) return;
+    var sb = ET.getClient();
+    if (!sb) return;
+    var res = await sb.from('issues').update({ status: status }).in('id', ids);
+    if (res.error) { toast(ET.friendlyError(res.error)); return; }
+    selection = {};
+    await refresh({ silent: true });
+    toast(ids.length + ' issue(s) set to ' + STATUS_LABEL[status] + '.');
+  }
+
+  async function bulkDelete() {
+    if (!isAdmin()) return;
+    var ids = selectedIds();
+    if (!ids.length) return;
+    var ok = await ET.confirm('Delete ' + ids.length + ' selected issue(s)? This cannot be undone.',
+      { title: 'Delete issues', okLabel: 'Delete ' + ids.length });
+    if (!ok) return;
+    var sb = ET.getClient();
+    if (!sb) return;
+    var res = await sb.from('issues').delete().in('id', ids);
+    if (res.error) { toast(ET.friendlyError(res.error)); return; }
+    selection = {};
+    if (editingId && ids.indexOf(editingId) !== -1) resetIssueForm();
+    await refresh({ silent: true });
+    toast('Deleted ' + ids.length + ' issue(s).');
+  }
+
+  function bulkSelectAll() {
+    visibleIssues().forEach(function (i) { selection[i.id] = true; });
+    renderIssues();
+  }
+
+  function bulkClear() {
+    selection = {};
+    renderIssues();
+  }
+
   function renderIssues() {
+    pruneSelection();
+    updateBulkBar();
+
     var total = issues.length;
     var done = issues.filter(function (i) { return i.status === 'done'; }).length;
     var fixing = issues.filter(function (i) { return i.status === 'fixing'; }).length;
@@ -474,9 +624,19 @@
 
     $('issueList').addEventListener('change', function (event) {
       var select = event.target.closest('select[data-action="status"]');
-      if (!select) return;
-      var card = select.closest('.issue');
-      if (card) setStatus(card.dataset.id, select.value);
+      if (select) {
+        var card = select.closest('.issue');
+        if (card) setStatus(card.dataset.id, select.value);
+        return;
+      }
+      var box = event.target.closest('input[data-action="select"]');
+      if (box) {
+        var row = box.closest('.issue');
+        if (!row) return;
+        if (box.checked) selection[row.dataset.id] = true;
+        else delete selection[row.dataset.id];
+        updateBulkBar();
+      }
     });
 
     $('clearDoneBtn').addEventListener('click', clearDone);
@@ -512,6 +672,47 @@
       clearTimeout(searchTimer);
       var value = e.target.value;
       searchTimer = setTimeout(function () { filters.q = value; renderIssues(); }, 120);
+    });
+
+    /* ---- admin bulk actions ---- */
+    var selectAll = $('bulkSelectAll');
+    if (selectAll) selectAll.addEventListener('click', bulkSelectAll);
+    var clearSel = $('bulkClear');
+    if (clearSel) clearSel.addEventListener('click', bulkClear);
+    var applySel = $('bulkApply');
+    if (applySel) applySel.addEventListener('click', bulkApplyStatus);
+    var delSel = $('bulkDelete');
+    if (delSel) delSel.addEventListener('click', bulkDelete);
+
+    /* ---- keyboard shortcuts ---- */
+    var keysPop = $('keysPop');
+    var keysClose = $('keysClose');
+
+    function closeKeys() { if (keysPop) keysPop.hidden = true; }
+    if (keysClose) keysClose.addEventListener('click', closeKeys);
+    if (keysPop) keysPop.addEventListener('click', function (e) { if (e.target === keysPop) closeKeys(); });
+
+    document.addEventListener('keydown', function (e) {
+      if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey) return;
+      var tag = (e.target.tagName || '').toLowerCase();
+      if (tag === 'input' || tag === 'textarea' || tag === 'select' || e.target.isContentEditable) return;
+
+      if (e.key === '/') {
+        e.preventDefault();
+        var search = $('searchInput');
+        if (search) { search.focus(); search.select(); }
+      } else if (e.key === 'n' || e.key === 'N') {
+        e.preventDefault();
+        resetIssueForm();
+        var panel = document.querySelector('#issueFormPanel');
+        if (panel) panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        $('issueTitle').focus();
+      } else if (e.key === '?') {
+        e.preventDefault();
+        if (keysPop) keysPop.hidden = !keysPop.hidden;
+      } else if (e.key === 'Escape') {
+        closeKeys();
+      }
     });
   }
 

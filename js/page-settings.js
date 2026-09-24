@@ -46,12 +46,25 @@
     var user = await ET.layout.render({ active: 'settings', title: 'Settings' });
     if (!user) return;
 
-    var theme = $('settingsTheme');
-    if (theme) {
-      theme.checked = ET.layout.currentTheme() === 'dark';
-      theme.addEventListener('change', function () {
-        ET.layout.setTheme(theme.checked ? 'dark' : 'light');
+    var themeOpts = document.querySelectorAll('[data-theme-opt]');
+    if (themeOpts.length) {
+      function paintTheme() {
+        var t = ET.layout.currentTheme();
+        Array.prototype.forEach.call(themeOpts, function (b) {
+          b.classList.toggle('active', b.getAttribute('data-theme-opt') === t);
+        });
+      }
+      Array.prototype.forEach.call(themeOpts, function (b) {
+        b.addEventListener('click', function () {
+          ET.layout.setTheme(b.getAttribute('data-theme-opt'));
+          paintTheme();
+        });
       });
+      paintTheme();
+
+      // Keep the buttons in sync if the topbar toggle is used on this page.
+      var topBtn = $('themeBtn');
+      if (topBtn) topBtn.addEventListener('click', function () { setTimeout(paintTheme, 0); });
     }
 
     var clearBtn = $('clearFiltersBtn');
@@ -59,16 +72,6 @@
 
     var logoutBtn = $('settingsLogout');
     if (logoutBtn) logoutBtn.addEventListener('click', function (e) { ET.auth.logout(e); });
-
-    // Keep the switch in sync if the topbar toggle is used on this page.
-    var topBtn = $('themeBtn');
-    if (topBtn) {
-      topBtn.addEventListener('click', function () {
-        setTimeout(function () {
-          if (theme) theme.checked = ET.layout.currentTheme() === 'dark';
-        }, 0);
-      });
-    }
   }
 
   if (document.readyState === 'loading') {

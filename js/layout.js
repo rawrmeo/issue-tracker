@@ -30,29 +30,48 @@
   /* ================================= theme =============================== */
 
   function applyTheme(theme) {
-    document.documentElement.setAttribute('data-theme', theme === 'dark' ? 'dark' : 'light');
+    if (theme === 'dark' || theme === 'light') {
+      document.documentElement.setAttribute('data-theme', theme);
+    } else {
+      document.documentElement.removeAttribute('data-theme');   // "auto" — the OS decides
+    }
     var btn = $('themeBtn');
     if (btn) {
-      btn.textContent = theme === 'dark' ? '☀️' : '🌙';
-      btn.setAttribute('aria-label', theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode');
+      var dark = theme === 'dark';
+      btn.textContent = dark ? '☀️' : '🌙';
+      btn.setAttribute('aria-label', dark ? 'Switch to light mode' : 'Switch to dark mode');
       btn.title = btn.getAttribute('aria-label');
     }
     var sw = $('settingsTheme');
     if (sw) sw.checked = theme === 'dark';
+    syncThemeControl(theme);
   }
 
   function currentTheme() {
-    try { return localStorage.getItem(ET.THEME_KEY) === 'dark' ? 'dark' : 'light'; }
-    catch (e) { return 'light'; }
+    try {
+      var t = localStorage.getItem(ET.THEME_KEY);
+      return (t === 'dark' || t === 'light') ? t : 'auto';
+    } catch (e) { return 'auto'; }
   }
 
   function setTheme(theme) {
-    try { localStorage.setItem(ET.THEME_KEY, theme); } catch (e) { /* ignore */ }
+    try {
+      if (theme === 'auto') localStorage.removeItem(ET.THEME_KEY);
+      else localStorage.setItem(ET.THEME_KEY, theme);
+    } catch (e) { /* ignore */ }
     applyTheme(theme);
   }
 
   function toggleTheme() {
+    // The topbar button flips between the two explicit modes.
     setTheme(currentTheme() === 'dark' ? 'light' : 'dark');
+  }
+
+  /* Highlights the Auto / Light / Night buttons on the Settings page. */
+  function syncThemeControl(theme) {
+    Array.prototype.forEach.call(document.querySelectorAll('[data-theme-opt]'), function (b) {
+      b.classList.toggle('active', b.getAttribute('data-theme-opt') === theme);
+    });
   }
 
   /* ============================== mobile nav ============================= */

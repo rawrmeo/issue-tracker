@@ -11,7 +11,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-title" content="Issue Tracker" />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%234f46e5'/%3E%3Cpath d='M28 52l15 15 30-32' stroke='white' stroke-width='11' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
-  <script>try{if(localStorage.getItem('it.theme')==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
+  <script>try{var t=localStorage.getItem('it.theme');if(t==='dark'||t==='light')document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
   <link rel="stylesheet" href="../styles.css" />
   <link rel="stylesheet" href="../enhancements.css" />
   <link rel="stylesheet" href="../css/app.css" />
@@ -19,6 +19,7 @@
   <!-- ADDED: admin-only status sidebar styles -->
   <link rel="stylesheet" href="../css/sidebar.css" />
   <link rel="stylesheet" href="../css/mobile-nav.css" />
+  <link rel="stylesheet" href="../css/features.css" />
 </head>
 <body>
   <div class="app-shell">
@@ -73,6 +74,14 @@
                 <input id="issueLabel" type="text" placeholder="bug, feature, docs…" maxlength="40" />
               </label>
             </div>
+
+            <!-- Admins can leave a message for the reporter (edit mode only) -->
+            <label class="field" id="noteField" hidden>
+              <span>Message to the reporter <small class="muted">(optional)</small></span>
+              <textarea id="issueNote" rows="2" placeholder="e.g. Fixed in the latest update — thanks for the clear steps!" maxlength="1000"></textarea>
+            </label>
+
+            <p class="lock-note" id="lockNote" hidden></p>
 
             <div class="form-actions">
               <button type="submit" class="btn primary" id="issueSubmit">Report issue</button>
@@ -157,6 +166,21 @@
           </p>
         </section>
 
+        <!-- ===== admin bulk actions (shown once a row is ticked) ===== -->
+        <section class="bulkbar" id="bulkBar" hidden>
+          <span class="bulk-count" id="bulkCount">0 selected</span>
+          <button type="button" class="btn ghost" id="bulkSelectAll">Select all</button>
+          <button type="button" class="btn ghost" id="bulkClear">Clear</button>
+          <span class="bulk-spacer"></span>
+          <select id="bulkStatus" aria-label="Set status for the selected issues">
+            <option value="pending">Pending</option>
+            <option value="fixing">Fixing</option>
+            <option value="done">Done</option>
+          </select>
+          <button type="button" class="btn primary" id="bulkApply">Apply status</button>
+          <button type="button" class="btn danger" id="bulkDelete">Delete selected</button>
+        </section>
+
         <!-- ============ MOVED from index.html: issue list ================== -->
         <section id="issueList" class="issue-list" aria-live="polite"></section>
 
@@ -166,6 +190,20 @@
           <p class="muted" id="emptyText">Report your first issue using the form above.</p>
         </div>
       </main>
+    </div>
+  </div>
+
+  <div class="keys-pop" id="keysPop" hidden role="dialog" aria-modal="true" aria-labelledby="keysTitle">
+    <div class="keys-card">
+      <h3 id="keysTitle">Keyboard shortcuts</h3>
+      <p class="sub">These work on the Issues page, except while typing in a field.</p>
+      <div class="keys-grid">
+        <kbd>/</kbd><span>Jump to the search box</span>
+        <kbd>N</kbd><span>Start a new issue</span>
+        <kbd>?</kbd><span>Show or hide this help</span>
+        <kbd>Esc</kbd><span>Close any open dialog</span>
+      </div>
+      <button type="button" class="btn primary" id="keysClose">Got it</button>
     </div>
   </div>
 

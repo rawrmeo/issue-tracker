@@ -1,0 +1,168 @@
+/* ============================================================================
+ * css/features.css
+ * ----------------------------------------------------------------------------
+ * Styles for the features carried over from the merged branch:
+ *   - stale-issue badge
+ *   - admin bulk actions (checkboxes + bar)
+ *   - admin message to the reporter
+ *   - repeated-issues list on the dashboard
+ *   - keyboard-shortcut help
+ *   - appearance picker (Auto / Light / Night)
+ *
+ * Additive only — reuses the colour tokens from styles.css.
+ * ========================================================================= */
+
+/* ------------------------------ stale badge ------------------------------ */
+.stale-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: .28rem;
+  font-size: .68rem;
+  font-weight: 700;
+  padding: .14rem .5rem;
+  border-radius: 999px;
+  background: var(--warn-soft);
+  color: var(--warn);
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+
+/* --------------------------- bulk actions (admin) ----------------------- */
+.issue-check {
+  flex: 0 0 auto;
+  width: 17px;
+  height: 17px;
+  margin-right: .55rem;
+  accent-color: var(--accent);
+  cursor: pointer;
+  align-self: flex-start;
+  margin-top: .2rem;
+}
+
+.bulkbar {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  flex-wrap: wrap;
+  padding: .7rem .9rem;
+  border-radius: var(--radius);
+  background: var(--accent-soft);
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+}
+.bulkbar .bulk-count { font-weight: 700; color: var(--accent); font-size: .9rem; }
+.bulkbar .bulk-spacer { flex: 1 1 auto; }
+.bulkbar select {
+  padding: .45rem .6rem;
+  border-radius: 9px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+}
+
+/* ----------------------- admin message to the reporter ------------------- */
+.admin-note {
+  margin-top: .55rem;
+  padding: .55rem .75rem;
+  border-radius: 10px;
+  background: var(--accent-soft);
+  border-left: 3px solid var(--accent);
+  font-size: .85rem;
+  color: var(--text);
+  word-break: break-word;
+}
+.admin-note b { color: var(--accent); font-weight: 700; }
+.admin-note .when { color: var(--muted); margin-left: .4rem; font-size: .76rem; }
+
+.lock-note {
+  margin: 0 0 .8rem;
+  padding: .55rem .75rem;
+  border-radius: 10px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-size: .82rem;
+}
+#issueTitle:disabled,
+#issueDescription:disabled,
+#issueLabel:disabled { opacity: .75; cursor: not-allowed; }
+
+/* ---------------------- repeated issues (dashboard) --------------------- */
+.repeat-list { display: grid; gap: .55rem; }
+.repeat-item { display: grid; gap: .3rem; }
+.repeat-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: .6rem;
+}
+.repeat-name {
+  font-weight: 600;
+  font-size: .88rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.repeat-count {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+  font-size: .85rem;
+}
+.repeat-track {
+  height: 10px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+.repeat-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--warn);
+  min-width: 4px;
+}
+.repeat-meta { font-size: .74rem; color: var(--muted); }
+
+/* --------------------------- appearance picker -------------------------- */
+[data-theme-opt].active { background: var(--surface); color: var(--text); }
+
+/* ------------------------- keyboard shortcut help ----------------------- */
+.keys-pop {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: grid;
+  place-items: center;
+  background: rgba(12, 14, 24, .5);
+  padding: 1.2rem;
+}
+.keys-card {
+  width: 100%;
+  max-width: 420px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+  padding: 1.2rem 1.3rem;
+}
+.keys-card h3 { margin: 0 0 .2rem; }
+.keys-card .sub { color: var(--muted); font-size: .84rem; margin: 0 0 1rem; }
+.keys-grid {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: .55rem 1rem;
+  align-items: center;
+  margin-bottom: 1.1rem;
+}
+.keys-grid kbd {
+  display: inline-block;
+  min-width: 24px;
+  text-align: center;
+  padding: .1rem .5rem;
+  border: 1px solid var(--border);
+  border-bottom-width: 2px;
+  border-radius: 6px;
+  background: var(--surface-2);
+  font: 600 .78rem/1.6 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+.keys-grid span { font-size: .86rem; color: var(--muted); }

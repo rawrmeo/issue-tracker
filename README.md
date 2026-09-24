@@ -218,6 +218,26 @@ A service worker caches the shell, so it also opens when the phone is offline
 
 ---
 
+## Extra features
+
+- **Stale badges** — an issue still open after **7 days** shows an *Open Nd*
+  badge on the Issues page.
+- **Bulk actions (admins)** — tick issues on the Issues page, then **Apply
+  status** or **Delete selected** in one go.
+- **Message to the reporter** — when an admin edits an issue, the reporter's
+  title and description are kept read-only; the admin can set the status and
+  priority and leave a message, which the reporter sees on the issue.
+- **Most repeated issues** — the Dashboard lists titles reported more than
+  once (case, spacing and punctuation ignored).
+- **Keyboard shortcuts** — on the Issues page: `/` search, `N` new issue,
+  `?` help, `Esc` close.
+- **Appearance** — Settings now offers **Auto / Light / Night**.
+
+> **One-time database step** for the message box: run `sql/admin_note.sql`
+> (or `supabase/schema.sql`) in Supabase → SQL Editor → Run.
+
+---
+
 ## Quick reference
 
 | Task | Action |

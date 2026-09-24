@@ -114,6 +114,11 @@ create table if not exists public.issues (
   completed_at timestamptz
 );
 
+-- A message an administrator can leave for the reporter after fixing an
+-- issue. Empty by default, so this is safe to add to an existing database.
+alter table public.issues add column if not exists admin_note    text        not null default '';
+alter table public.issues add column if not exists admin_note_at timestamptz;
+
 create index if not exists issues_created_at_idx on public.issues (created_at desc);
 create index if not exists issues_status_idx     on public.issues (status);
 create index if not exists issues_author_idx     on public.issues (author_id);
