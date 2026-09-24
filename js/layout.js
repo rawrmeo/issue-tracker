@@ -78,6 +78,71 @@
 
   /* ============================== rendering ============================== */
 
+  /* ============================ install prompt ==========================
+   * Chrome, Edge and Android fire "beforeinstallprompt", which we can trigger
+   * from our own button. Safari has no such event, so there the button says
+   * what to tap instead. It never shows when the app is already installed.
+   * =================================================================== */
+  var installPrompt = null;
+
+  function isStandalone() {
+    return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
+           window.navigator.standalone === true;
+  }
+
+  function isIOS() {
+    return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+  }
+
+  function installShouldShow() {
+    return !isStandalone() && Boolean(installPrompt || isIOS());
+  }
+
+  function refreshInstall() {
+    var b = $('installAppBtn');
+    if (b) b.hidden = !installShouldShow();
+  }
+
+  function doInstall() {
+    if (installPrompt) {
+      installPrompt.prompt();
+      installPrompt.userChoice.then(function (choice) {
+        if (choice && choice.outcome === 'accepted' && ET.toast) ET.toast('Installing…');
+        installPrompt = null;
+        refreshInstall();
+      });
+      return;
+    }
+
+    window.alert('Install this app on your phone\n\n' +
+      'iPhone / iPad:\n' +
+      '  1. Tap the Share button (square with an arrow)\n' +
+      '  2. Scroll down and tap "Add to Home Screen"\n' +
+      '  3. Tap Add\n\n' +
+      'Android:\n' +
+      '  Open the browser menu and tap "Install app",\n' +
+      '  or "Add to Home screen".');
+  }
+
+  window.addEventListener('beforeinstallprompt', function (e) {
+    e.preventDefault();                 // ask in our own time, from our own button
+    installPrompt = e;
+    refreshInstall();
+  });
+
+  window.addEventListener('appinstalled', function () {
+    installPrompt = null;
+    refreshInstall();
+    if (ET.toast) ET.toast('App installed');
+  });
+
+  function wireInstall() {
+    var b = $('installAppBtn');
+    if (!b) return;
+    b.addEventListener('click', doInstall);
+    refreshInstall();
+  }
+
   function linkHtml(item, active) {
     return '<a class="nav-link' + (item.key === active ? ' active' : '') + '"' +
       ' href="' + item.href + '"' +
@@ -113,6 +178,13 @@
       '<nav class="nav" aria-label="Main">' + links + '</nav>' +
 
       '<div class="sidebar-foot">' +
+        // Only rendered when the app can actually be installed, and hidden
+        // again once it has been.
+        '<button type="button" class="nav-link" id="installAppBtn" hidden ' +
+          'style="width:100%;background:none;border:0;cursor:pointer;font:inherit;text-align:left;">' +
+          '<span class="nav-icon" aria-hidden="true">⬇️</span>' +
+          '<span>Install app</span>' +
+        '</button>' +
         '<nav class="nav nav-foot" aria-label="Account">' + footerLinks + '</nav>' +
         '<div class="user-card">' +
           '<span class="avatar" id="sidebarAvatar">' + initial + '</span>' +
@@ -398,6 +470,7 @@
 
       var sidebar = $('sidebar');
       if (sidebar) sidebar.innerHTML = sidebarHtml(user, opts.active || '');
+      wireInstall();
 
       var topbar = $('topbar');
       if (topbar) topbar.innerHTML = topbarHtml(opts.title || '', user);
