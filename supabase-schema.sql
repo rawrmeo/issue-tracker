@@ -300,3 +300,452 @@ create policy issues_delete_admin on public.issues
 --     update public.profiles set role = 'admin'
 --     where email = 'you@example.com';
 -- =====================================================================
+
+
+-- ============================================================================
+--  GRANTS
+--    Supabase grants table privileges to anon / authenticated by default, so
+--    the earlier sections never needed to say so. Stating them here keeps this
+--    schema self-sufficient: it can be run on a plain PostgreSQL and still
+--    work, which is exactly how it is tested.
+-- ============================================================================
+grant usage on schema public to anon, authenticated;
+grant select, insert, update, delete on public.profiles to authenticated;
+grant select, insert, update, delete on public.issues   to authenticated;
+
+
+-- ============================================================================
+--  AUTOMATIC BACKUPS
+-- ----------------------------------------------------------------------------
+--  WHY THE DATABASE DOES IT
+--    A browser cannot reliably write a backup in the background. A trigger
+--    can, so the snapshotting lives here, and it works with nobody watching.
+--
+--  WHAT IT ADDS
+--    * public.backups       one row per snapshot: the whole issues table as
+--                           JSON, so a restore is exact
+--    * public.app_settings  a single row holding the admin on/off switch
+--    * auto_snapshot()      one place that decides whether a backup is due
+--    * create_backup()      admin: back up now
+--    * restore_backup()     admin: put it back
+--    * a trigger on issues  backs up on any change, at most once an hour
+--    * an optional nightly pg_cron job for quiet days
+-- ============================================================================
+
+create table if not exists public.app_settings (
+  id                  boolean primary key default true check (id),
+  auto_backup_enabled boolean not null default true,
+  updated_at          timestamptz not null default now()
+);
+
+insert into public.app_settings (id) values (true) on conflict (id) do nothing;
+
+alter table public.app_settings enable row level security;
+
+drop policy if exists "admins read settings" on public.app_settings;
+create policy "admins read settings"
+  on public.app_settings for select
+  to authenticated
+  using (public.is_admin());
+
+drop policy if exists "admins change settings" on public.app_settings;
+create policy "admins change settings"
+  on public.app_settings for update
+  to authenticated
+  using (public.is_admin())
+  with check (public.is_admin());
+
+grant select, update on public.app_settings to authenticated;
+
+
+create table if not exists public.backups (
+  id          uuid primary key default gen_random_uuid(),
+  created_at  timestamptz not null default now(),
+  kind        text not null default 'auto' check (kind in ('auto','manual')),
+  issue_count integer not null default 0,
+  payload     jsonb not null default '[]'::jsonb
+);
+
+create index if not exists backups_created_at_idx on public.backups (created_at desc);
+
+alter table public.backups enable row level security;
+
+-- Take a snapshot. Internal: the browser must never reach this directly, or a
+-- reporter could fill the table.
+create or replace function public.snapshot_issues(p_kind text default 'auto')
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  new_id uuid;
+  n_keep integer := 30;      -- how many snapshots to keep
+begin
+  insert into public.backups (kind, issue_count, payload)
+  select
+    case when p_kind = 'manual' then 'manual' else 'auto' end,
+    count(*),
+    coalesce(jsonb_agg(to_jsonb(i) order by i.created_at), '[]'::jsonb)
+  from public.issues i
+  returning id into new_id;
+
+  -- Retention: drop everything past the newest n_keep.
+  delete from public.backups
+  where id in (
+    select id from public.backups order by created_at desc offset n_keep
+  );
+
+  return new_id;
+end;
+$$;
+
+revoke all on function public.snapshot_issues(text) from public;
+
+-- Is a backup due? One place, so the trigger and the nightly job cannot drift.
+create or replace function public.auto_snapshot()
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not coalesce((select auto_backup_enabled from public.app_settings limit 1), true) then
+    return null;                       -- switched off by an admin
+  end if;
+
+  if exists (
+    select 1 from public.backups
+    where kind = 'auto' and created_at > now() - interval '1 hour'
+  ) then
+    return null;                       -- already took one this hour
+  end if;
+
+  return public.snapshot_issues('auto');
+end;
+$$;
+
+revoke all on function public.auto_snapshot() from public;
+
+create or replace function public.auto_backup_on_change()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  perform public.auto_snapshot();
+  return null;
+end;
+$$;
+
+drop trigger if exists issues_auto_backup on public.issues;
+create trigger issues_auto_backup
+  after insert or update or delete on public.issues
+  for each statement execute function public.auto_backup_on_change();
+
+
+-- "Back up now"
+create or replace function public.create_backup()
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not public.is_admin() then
+    raise exception 'Only an administrator can create a backup'
+      using errcode = '42501';
+  end if;
+  return public.snapshot_issues('manual');
+end;
+$$;
+
+revoke all on function public.create_backup() from public;
+grant execute on function public.create_backup() to authenticated;
+
+
+-- "Put it back": replaces the issues with the snapshot.
+-- Takes a safety snapshot first, so a restore can itself be undone.
+create or replace function public.restore_backup(p_id uuid)
+returns integer
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  n_restored integer := 0;
+  n_total    integer := 0;
+  n_usable   integer := 0;
+begin
+  if not public.is_admin() then
+    raise exception 'Only an administrator can restore a backup'
+      using errcode = '42501';
+  end if;
+
+  if not exists (select 1 from public.backups where id = p_id) then
+    raise exception 'That backup no longer exists';
+  end if;
+
+  select jsonb_array_length(payload) into n_total
+  from public.backups where id = p_id;
+
+  select count(*) into n_usable
+  from jsonb_array_elements((select payload from public.backups where id = p_id)) as elem
+  where exists (
+    select 1 from auth.users u where u.id = (elem ->> 'created_by')::uuid
+  );
+
+  -- Guard against a silent wipe: a snapshot that names issues, but whose
+  -- reporters have all been deleted, would otherwise clear the whole board
+  -- and report "0 restored".
+  if n_total > 0 and n_usable = 0 then
+    raise exception 'This backup only references accounts that no longer exist, so restoring it would empty the board. Nothing was changed.';
+  end if;
+
+  -- Safety net: never let a restore destroy the only copy.
+  perform public.snapshot_issues('auto');
+
+  delete from public.issues;
+
+  -- Column-agnostic on purpose: jsonb_populate_record maps the stored JSON
+  -- straight back onto the table, so a snapshot restores correctly whether it
+  -- was taken before or after a column was added.
+  insert into public.issues
+  select r2.*
+  from jsonb_array_elements(
+         (select payload from public.backups where id = p_id)
+       ) as elem
+  cross join lateral jsonb_populate_record(null::public.issues, elem) as r2
+  where exists (
+    select 1 from auth.users u where u.id = (elem ->> 'created_by')::uuid
+  );
+
+  get diagnostics n_restored = row_count;
+  return n_restored;
+end;
+$$;
+
+revoke all on function public.restore_backup(uuid) from public;
+grant execute on function public.restore_backup(uuid) to authenticated;
+
+
+drop policy if exists "admins read backups" on public.backups;
+create policy "admins read backups"
+  on public.backups for select
+  to authenticated
+  using (public.is_admin());
+
+drop policy if exists "admins delete backups" on public.backups;
+create policy "admins delete backups"
+  on public.backups for delete
+  to authenticated
+  using (public.is_admin());
+
+grant select, delete on public.backups to authenticated;
+
+
+-- ============================================================================
+--  RECYCLE BIN  (deleting stops being destructive)
+-- ----------------------------------------------------------------------------
+--  Delete only stamps the row. It drops out of every list because the SELECT
+--  policy stops matching it, so no query in the app had to change - and an
+--  admin can put it back from the recycle bin.
+-- ============================================================================
+alter table public.issues add column if not exists deleted_at timestamptz;
+
+create index if not exists issues_deleted_at_idx on public.issues (deleted_at);
+
+drop policy if exists issues_select_auth on public.issues;
+create policy issues_select_auth
+  on public.issues for select
+  to authenticated
+  using (auth.uid() is not null and deleted_at is null);
+
+-- Only an admin may remove a row outright; everyone else goes through the bin.
+drop policy if exists issues_delete_admin on public.issues;
+create policy issues_delete_admin
+  on public.issues for delete
+  to authenticated
+  using (public.is_admin());
+
+
+create or replace function public.soft_delete_issue(p_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_owner uuid;
+begin
+  select created_by into v_owner from public.issues where id = p_id;
+
+  if not found then
+    raise exception 'That issue no longer exists';
+  end if;
+
+  if v_owner is not null and v_owner is distinct from auth.uid() and not public.is_admin() then
+    raise exception 'You can only delete your own issues'
+      using errcode = '42501';
+  end if;
+
+  update public.issues
+     set deleted_at = now()
+   where id = p_id and deleted_at is null;
+end;
+$$;
+
+revoke all on function public.soft_delete_issue(uuid) from public;
+grant execute on function public.soft_delete_issue(uuid) to authenticated;
+
+
+create or replace function public.list_deleted_issues()
+returns table (
+  id               uuid,
+  title            text,
+  description      text,
+  status           text,
+  priority         text,
+  created_by_email text,
+  created_at       timestamptz,
+  deleted_at       timestamptz
+)
+language plpgsql
+security definer
+set search_path = public
+stable
+as $$
+begin
+  if not public.is_admin() then
+    raise exception 'Only an administrator can open the recycle bin'
+      using errcode = '42501';
+  end if;
+
+  return query
+    select i.id, i.title, i.description, i.status, i.priority,
+           coalesce(nullif(i.created_by_email, ''), '(account removed)'),
+           i.created_at, i.deleted_at
+    from public.issues i
+    where i.deleted_at is not null
+    order by i.deleted_at desc;
+end;
+$$;
+
+revoke all on function public.list_deleted_issues() from public;
+grant execute on function public.list_deleted_issues() to authenticated;
+
+
+create or replace function public.restore_issue(p_id uuid)
+returns integer
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  n integer := 0;
+begin
+  if not public.is_admin() then
+    raise exception 'Only an administrator can restore an issue'
+      using errcode = '42501';
+  end if;
+
+  update public.issues
+     set deleted_at = null
+   where id = p_id and deleted_at is not null;
+
+  get diagnostics n = row_count;
+  return n;
+end;
+$$;
+
+revoke all on function public.restore_issue(uuid) from public;
+grant execute on function public.restore_issue(uuid) to authenticated;
+
+
+create or replace function public.purge_issue(p_id uuid)
+returns integer
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  n integer := 0;
+begin
+  if not public.is_admin() then
+    raise exception 'Only an administrator can delete an issue for good'
+      using errcode = '42501';
+  end if;
+
+  delete from public.issues where id = p_id and deleted_at is not null;
+
+  get diagnostics n = row_count;
+  return n;
+end;
+$$;
+
+revoke all on function public.purge_issue(uuid) from public;
+grant execute on function public.purge_issue(uuid) to authenticated;
+
+
+create or replace function public.empty_recycle_bin()
+returns integer
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  n integer := 0;
+begin
+  if not public.is_admin() then
+    raise exception 'Only an administrator can empty the recycle bin'
+      using errcode = '42501';
+  end if;
+
+  delete from public.issues where deleted_at is not null;
+
+  get diagnostics n = row_count;
+  return n;
+end;
+$$;
+
+revoke all on function public.empty_recycle_bin() from public;
+grant execute on function public.empty_recycle_bin() to authenticated;
+
+
+-- ============================================================================
+--  OPTIONAL — A NIGHTLY BACKUP ON QUIET DAYS
+--    The trigger only fires when something changes. pg_cron must be enabled
+--    once in the dashboard (Database -> Extensions -> pg_cron). If it is not,
+--    this block does nothing and the trigger still covers you.
+-- ============================================================================
+do $$
+begin
+  begin
+    create extension if not exists pg_cron;
+  exception when others then null;
+  end;
+
+  begin
+    perform cron.unschedule('issue-tracker-auto-backup');
+  exception when others then null;
+  end;
+
+  begin
+    perform cron.schedule(
+      'issue-tracker-auto-backup',
+      '0 2 * * *',
+      $job$select public.auto_snapshot()$job$
+    );
+  exception when others then null;
+  end;
+end $$;
+
+
+-- ============================================================================
+--  Realtime: send the whole old row on update and delete.
+--  Without this an update event cannot say what the status WAS, and a delete
+--  event arrives with no title. Costs a little more write-ahead log per
+--  update, which is nothing at this size.
+-- ============================================================================
+alter table public.issues replica identity full;
