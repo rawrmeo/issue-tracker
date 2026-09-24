@@ -62,6 +62,8 @@
               (canToggle ? '' : ' disabled') + '>' +
               (p.role === ADMIN ? 'Make user' : 'Make admin') +
             '</button>' +
+            '<button class="btn danger" type="button" data-action="delete"' +
+              (canToggle ? '' : ' disabled') + '>Delete</button>' +
           '</div>' +
         '</div>'
       );
@@ -87,6 +89,53 @@
     toast(profile.username + ' is now ' + role + '.');
   }
 
+  /* ----------------------------- delete ---------------------------------- */
+
+  async function deleteUser(profile) {
+    if (!ET.auth.isAdmin()) return;
+
+    if (profile.id === ET.auth.user.id) {
+      toast('You cannot delete your own account.');
+      return;
+    }
+
+    var ok = await ET.confirm(
+      'Delete \u201c' + profile.username + '\u201d?\n\n' +
+      'They will no longer be able to sign in. Their issues stay on the board, ' +
+      'shown as (account removed).',
+      { title: 'Delete account', okLabel: 'Delete account' }
+    );
+    if (!ok) return;
+
+    var sb = ET.getClient();
+    if (!sb) return;
+
+    var row = document.querySelector('.user-row[data-id="' + profile.id + '"]');
+    var btn = row ? row.querySelector('button[data-action="delete"]') : null;
+    ET.setBusy(btn, true, 'Deleting\u2026');
+
+    var res = await sb.rpc('admin_delete_user', { p_id: profile.id });
+    ET.setBusy(btn, false);
+
+    if (res.error) { toast(friendlyUserError(res.error)); return; }
+
+    await loadProfiles();
+    toast(profile.username + ' deleted.');
+  }
+
+  /** Readable versions of what sql/admin_users.sql raises. */
+  function friendlyUserError(error) {
+    var m = String((error && error.message) || '');
+    if (/Only admins/i.test(m)) return m;
+    if (/cannot delete your own/i.test(m)) return 'You cannot delete your own account.';
+    if (/at least one admin/i.test(m)) return 'There must always be at least one admin.';
+    if (/no longer exists/i.test(m)) return 'That account no longer exists.';
+    if (/Could not find the function|PGRST202/i.test(m)) {
+      return 'Run sql/admin_users.sql in the Supabase SQL Editor first.';
+    }
+    return ET.friendlyError(error);
+  }
+
   function setText(id, value) {
     var el = $(id);
     if (el) el.textContent = value;
@@ -94,12 +143,21 @@
 
   function bindEvents() {
     $('userList').addEventListener('click', function (event) {
-      var button = event.target.closest('button[data-action="toggle-role"]');
+      var button = event.target.closest('button[data-action]');
       if (!button) return;
+
       var row = button.closest('.user-row');
       if (!row) return;
+
       var profile = profiles.filter(function (p) { return p.id === row.dataset.id; })[0];
-      if (profile) setUserRole(profile, profile.role === ADMIN ? USER : ADMIN);
+      if (!profile) return;
+
+      var action = button.dataset.action;
+      if (action === 'toggle-role') {
+        setUserRole(profile, profile.role === ADMIN ? USER : ADMIN);
+      } else if (action === 'delete') {
+        deleteUser(profile);
+      }
     });
   }
 

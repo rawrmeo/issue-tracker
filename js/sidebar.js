@@ -28,13 +28,11 @@
   var $ = function (id) { return document.getElementById(id); };
 
   var ADMIN_LINKS = [
-    { label: 'Reported',   icon: '📥', href: 'admin-reported.html' },
-    { label: 'Pending',    icon: '⏳', href: 'admin-pending.html' },
-    { label: 'Fixing',     icon: '🔧', href: 'admin-fixing.html' },
-    { label: 'Done',       icon: '✅', href: 'admin-done.html' },
-    { label: 'Users',      icon: '👥', href: 'users.html' },
+    { label: 'Reported',    icon: '📥', href: 'admin-reported.html' },
     { sep: true },
-    { label: 'All issues', icon: '🏠', href: 'admin-all.html' }
+    { label: 'Users',       icon: '👥', href: 'users.html' },
+    { label: 'Backups',     icon: '💾', href: 'admin-backups.html' },
+    { label: 'Recycle bin', icon: '🗑️', href: 'admin-recyclebin.html' }
   ];
 
   function currentFile() {
@@ -72,12 +70,62 @@
       '</a>';
     });
     html += '</nav>';
+    html += '<div id="as-backup" style="font-size:.72rem;opacity:.72;padding:.5rem .75rem 0;" ' +
+            'role="status" aria-live="polite"></div>';
     aside.innerHTML = html;
 
     // Between the page nav and the user card.
     var foot = sidebar.querySelector('.sidebar-foot');
     if (foot) sidebar.insertBefore(aside, foot);
     else sidebar.appendChild(aside);
+
+    renderBackupStatus();
+  }
+
+  /* ---------------------------------------------------------------------------
+   * Backup status for admins, under the admin links on every page.
+   * Reads the newest snapshot. If the SQL half has not been run yet it says so
+   * instead of throwing.
+   * ------------------------------------------------------------------------- */
+  async function renderBackupStatus() {
+    var box = $('as-backup');
+    if (!box) return;
+
+    var sb = ET.getClient && ET.getClient();
+    if (!sb) { box.textContent = ''; return; }
+
+    try {
+      // Switched off by an admin? Show that instead of a stale time.
+      var setting = await sb.from('app_settings').select('auto_backup_enabled').limit(1);
+      if (!setting.error && setting.data && setting.data.length &&
+          setting.data[0].auto_backup_enabled === false) {
+        box.textContent = '💾 Backups: paused';
+        box.title = 'Automatic backups are switched off.';
+        return;
+      }
+
+      var res = await sb.from('backups')
+        .select('created_at')
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      if (res.error) {
+        box.textContent = /does not exist|schema cache|Could not find/i.test(String(res.error.message))
+          ? 'Backups: run sql/auto_backup.sql'
+          : '';
+        return;
+      }
+      if (!res.data || !res.data.length) {
+        box.textContent = 'Backups: none yet';
+        return;
+      }
+
+      var when = Date.parse(res.data[0].created_at);
+      box.textContent = '💾 Backed up ' + ET.timeAgo(when);
+      box.title = 'Newest automatic backup: ' + ET.formatDate(when);
+    } catch (e) {
+      box.textContent = '';
+    }
   }
 
   /* ================================ API ================================= */

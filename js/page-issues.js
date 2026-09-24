@@ -121,13 +121,157 @@
     setTimeout(function () { dot.classList.remove('pulse'); }, 600);
   }
 
+  /* --------------------------------- alerts ------------------------------
+   * A change to an issue shows up as a card in the corner for everyone
+   * looking at the board - including the admin who made it, so there is no
+   * doubt the write landed. Built with inline styles on purpose: it stays in
+   * this one file rather than needing its own stylesheet on every page.
+   * --------------------------------------------------------------------- */
+  var ALERT_COLOUR = {
+    created: '#4f46e5',
+    pending: '#b45309',
+    fixing:  '#2563eb',
+    done:    '#15803d',
+    removed: '#dc2626'
+  };
+
+  function alertHost() {
+    var host = $('issueAlerts');
+    if (host) return host;
+    host = document.createElement('div');
+    host.id = 'issueAlerts';
+    host.setAttribute('role', 'status');
+    host.setAttribute('aria-live', 'polite');
+    host.style.cssText =
+      'position:fixed;top:.9rem;right:.9rem;z-index:80;display:flex;flex-direction:column;' +
+      'gap:.5rem;max-width:min(92vw,340px);pointer-events:none;';
+    document.body.appendChild(host);
+    return host;
+  }
+
+  /* Who cares about this change? A reporter only about their own issues; an
+     admin about everything on the board. */
+  function worthNotifying(row) {
+    if (isAdmin()) return true;
+    var me = ET.auth && ET.auth.user && ET.auth.user.id;
+    return Boolean(row && row.author_id && me && row.author_id === me);
+  }
+
+  /** Add it to the bell list as well as the corner alert. */
+  function notify(kind, title, body, row) {
+    if (!ET.notifications || !ET.notifications.push) return;
+    if (!worthNotifying(row)) return;
+    ET.notifications.push({ kind: kind, title: title, body: body });
+  }
+
+  /* A status change WE made, remembered for a minute.
+     Our own update refreshes the list immediately, so by the time the realtime
+     event comes back the cached status is already the new one and the change
+     would look like no change at all. This keeps "what it was" for our own
+     writes, so the bell still rings for them. */
+  var myStatusChanges = {};
+
+  function rememberMyStatusChange(id, from, to) {
+    if (!id) return;
+    myStatusChanges[id] = { from: from, to: to, at: Date.now() };
+  }
+
+  function takeMyStatusChange(id) {
+    var entry = myStatusChanges[id];
+    if (!entry) return null;
+    delete myStatusChanges[id];
+    if (Date.now() - entry.at > 60000) return null;
+    return entry;
+  }
+
+  function showAlert(kind, heading, detail) {
+    var card = document.createElement('div');
+    card.style.cssText =
+      'pointer-events:auto;cursor:pointer;background:var(--surface);border:1px solid var(--border);' +
+      'border-left:4px solid ' + (ALERT_COLOUR[kind] || ALERT_COLOUR.created) + ';border-radius:10px;' +
+      'padding:.7rem .85rem;box-shadow:0 10px 30px rgba(16,20,30,.22);font-size:.85rem;' +
+      'opacity:0;transform:translateY(-6px);transition:opacity .18s,transform .18s;';
+
+    var headingEl = document.createElement('strong');
+    headingEl.textContent = heading;
+    headingEl.style.cssText = 'display:block;';
+    card.appendChild(headingEl);
+
+    if (detail) {
+      var detailEl = document.createElement('div');
+      detailEl.textContent = detail;
+      detailEl.style.cssText = 'color:var(--muted);margin-top:.15rem;word-break:break-word;';
+      card.appendChild(detailEl);
+    }
+
+    alertHost().appendChild(card);
+    requestAnimationFrame(function () {
+      card.style.opacity = '1';
+      card.style.transform = 'none';
+    });
+
+    function dismiss() {
+      card.style.opacity = '0';
+      card.style.transform = 'translateY(-6px)';
+      setTimeout(function () { if (card.parentNode) card.parentNode.removeChild(card); }, 220);
+    }
+
+    card.addEventListener('click', dismiss);   // click to dismiss early
+    setTimeout(dismiss, 8000);
+  }
+
   function subscribeRealtime() {
     var sb = ET.getClient();
     if (!sb) return;
     if (channel) { try { sb.removeChannel(channel); } catch (e) { /* ignore */ } }
     channel = sb.channel('tracker-issues')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'issues' },
-        function () { refresh({ silent: true }); })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'issues' },
+        function (payload) {
+          var row = payload.new || {};
+          flashLive();
+          showAlert('created', 'New issue reported', row.title || '');
+          notify('created', 'New issue reported', row.title || '', row);
+          refresh({ silent: true });
+        })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'issues' },
+        function (payload) {
+          var row = payload.new || {};
+          var previous = payload.old || {};
+
+          // With REPLICA IDENTITY FULL the event itself carries what the
+          // status WAS, and that is the only reliable source: by the time this
+          // event lands, the list may already have refreshed, in which case
+          // our own cache holds the NEW value and the change looks like none.
+          var wasStatus = previous.status;
+          if (!wasStatus) {
+            var mine = takeMyStatusChange(row.id);
+            if (mine) wasStatus = mine.from;
+          }
+          if (!wasStatus) {
+            var cached = issues.filter(function (i) { return i.id === row.id; })[0];
+            wasStatus = cached ? cached.status : null;
+          }
+
+          // Alert on a status change only - an edit that leaves the status
+          // alone should not shout.
+          if (row.status && wasStatus && wasStatus !== row.status) {
+            var label = 'Status changed to ' + (STATUS_LABEL[row.status] || row.status);
+            flashLive();
+            showAlert(row.status, label, row.title || '');
+            notify(row.status, label, row.title || '', row);
+          }
+          refresh({ silent: true });
+        })
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'issues' },
+        function (payload) {
+          var row = payload.old || {};
+          // With REPLICA IDENTITY FULL this carries the whole old row, so the
+          // title is there and a reporter can be told which issue went.
+          flashLive();
+          showAlert('removed', 'Issue removed', row.title || 'An issue was removed.');
+          notify('removed', 'Issue removed', row.title || '', row);
+          refresh({ silent: true });
+        })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' },
         function () { refresh({ silent: true }); })
       .subscribe(function (status) {
@@ -204,6 +348,11 @@
         // keeps the request honest.
         if (isAdmin()) patch.status = $('issueStatus').value;
 
+        if (patch.status) {
+          var wasIssue = issues.filter(function (i) { return i.id === editingId; })[0];
+          rememberMyStatusChange(editingId, wasIssue ? wasIssue.status : null, patch.status);
+        }
+
         var upd = await sb.from('issues').update(patch).eq('id', editingId);
         if (upd.error) { toast(ET.friendlyError(upd.error)); return; }
 
@@ -245,10 +394,26 @@
     var sb = ET.getClient();
     if (!sb) return;
 
+    var current = issues.filter(function (i) { return i.id === id; })[0];
+    rememberMyStatusChange(id, current ? current.status : null, status);
+
     var res = await sb.from('issues').update({ status: status }).eq('id', id);
     if (res.error) toast(ET.friendlyError(res.error));
     else toast('Status changed to ' + STATUS_LABEL[status] + '.');
     await refresh({ silent: true });
+  }
+
+  /* The SQL half of the recycle bin not run yet? Say exactly that rather than
+     letting "Could not find the function ... in the schema cache" through. */
+  function friendlyWriteError(error) {
+    var m = String((error && error.message) || '');
+    if (/Could not find the function|PGRST202/i.test(m)) {
+      return 'The recycle bin is not set up yet. Run sql/recycle_bin.sql in the Supabase SQL Editor, then reload this page.';
+    }
+    if (/deleted_at|schema cache.*column/i.test(m)) {
+      return 'The recycle bin is not set up yet. Run sql/recycle_bin.sql in the Supabase SQL Editor, then reload this page.';
+    }
+    return ET.friendlyError(error);
   }
 
   async function deleteIssue(id) {
@@ -256,17 +421,17 @@
     if (!issue) return;
     if (!canManage(issue)) { toast('You can only delete your own issues.'); return; }
 
-    var ok = await ET.confirm('Delete “' + issue.title + '”? This cannot be undone.',
-      { title: 'Delete issue', okLabel: 'Delete' });
+    var ok = await ET.confirm('Move “' + issue.title + '” to the recycle bin? An admin can put it back.',
+      { title: 'Delete issue', okLabel: 'Move to bin' });
     if (!ok) return;
 
     var sb = ET.getClient();
     if (!sb) return;
-    var res = await sb.from('issues').delete().eq('id', id);
-    if (res.error) { toast(ET.friendlyError(res.error)); return; }
+    var res = await sb.rpc('soft_delete_issue', { p_id: id });
+    if (res.error) { toast(friendlyWriteError(res.error)); return; }
     if (editingId === id) resetIssueForm();
     await refresh({ silent: true });
-    toast('Issue deleted.');
+    toast('Moved to the recycle bin.');
   }
 
   async function clearDone() {
@@ -274,16 +439,16 @@
     var done = issues.filter(function (i) { return i.status === 'done'; });
     if (!done.length) { toast('No done issues to clear.'); return; }
 
-    var ok = await ET.confirm('Delete ' + done.length + ' done issue(s)? This cannot be undone.',
-      { title: 'Clear done issues', okLabel: 'Delete ' + done.length });
+    var ok = await ET.confirm('Move ' + done.length + ' done issue(s) to the recycle bin? An admin can put them back.',
+      { title: 'Clear done issues', okLabel: 'Move ' + done.length + ' to bin' });
     if (!ok) return;
 
     var sb = ET.getClient();
     if (!sb) return;
-    var res = await sb.from('issues').delete().eq('status', 'done');
-    if (res.error) { toast(ET.friendlyError(res.error)); return; }
+    var res = await sb.rpc('soft_delete_done');
+    if (res.error) { toast(friendlyWriteError(res.error)); return; }
     await refresh({ silent: true });
-    toast('Cleared ' + done.length + ' done issue(s).');
+    toast('Moved ' + done.length + ' issue(s) to the recycle bin.');
   }
 
   /* ------------------------------ rendering ------------------------------ */

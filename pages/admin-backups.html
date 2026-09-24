@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Backups · Issue Tracker</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%234f46e5'/%3E%3Cpath d='M28 52l15 15 30-32' stroke='white' stroke-width='11' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
+  <script>try{if(localStorage.getItem('it.theme')==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
+  <link rel="stylesheet" href="../styles.css" />
+  <link rel="stylesheet" href="../css/app.css" />
+  <link rel="stylesheet" href="../css/pages.css" />
+  <!-- ADDED: admin-only sidebar + role badge -->
+  <link rel="stylesheet" href="../css/sidebar.css" />
+</head>
+<body class="admin-page">
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar"></aside>
+
+    <div class="main">
+      <header class="topbar" id="topbar"></header>
+
+      <main class="page-content">
+        <div class="page-head">
+          <h2>Backups</h2>
+          <p>The system snapshots every issue by itself. Restoring puts the board back exactly as it was.</p>
+        </div>
+
+        <!-- ================= automatic backups ================= -->
+        <section class="card panel">
+          <div class="panel-head">
+            <h2>
+              Automatic backups
+              <span class="role-chip role-admin" id="autoState">on</span>
+            </h2>
+            <p class="muted">
+              A snapshot is taken automatically whenever an issue is filed, changed or
+              deleted — at most one an hour, so it can never flood. The newest
+              <strong>30</strong> are kept and older ones fall away on their own.
+            </p>
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-text">
+              <span class="name">Automatic backups</span>
+              <span class="muted small">
+                Switch this off to pause automatic snapshots. <strong>Back up now</strong>
+                still works, and restores still take a safety snapshot first.
+              </span>
+            </div>
+            <div class="setting-control">
+              <input type="checkbox" class="switch" id="autoBackupToggle" aria-label="Automatic backups" />
+            </div>
+          </div>
+
+          <p class="inline-note" id="autoBackupNote" role="status"></p>
+
+          <div class="user-actions" style="display:flex;gap:.6rem;flex-wrap:wrap;">
+            <button class="btn primary" type="button" id="backupNowBtn">Back up now</button>
+            <button class="btn" type="button" id="refreshBtn">Refresh</button>
+          </div>
+
+          <p class="inline-note" id="backupStatus" role="status"></p>
+        </section>
+
+        <!-- ================= the snapshots ================= -->
+        <section class="card panel">
+          <div class="panel-head">
+            <h2>Saved snapshots <span class="muted" id="backupCount">0</span></h2>
+            <p class="muted">
+              <strong>Download</strong> saves a JSON copy. <strong>Restore</strong> replaces
+              the current issues with that snapshot — a safety snapshot is taken first,
+              so a restore can itself be undone.
+            </p>
+          </div>
+
+          <div id="backupList" class="user-list"></div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <div class="backdrop" id="backdrop" hidden></div>
+  <div id="toast" class="toast" hidden></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="../supabase-config.js"></script>
+  <script src="../js/supabase.js"></script>
+  <script src="../js/toast.js"></script>
+  <script src="../js/modal.js"></script>
+  <script src="../js/auth.js"></script>
+  <script src="../js/layout.js"></script>
+  <!-- ADDED: admin-only sidebar (renders only for admins) -->
+  <script src="../js/sidebar.js"></script>
+  <script src="../js/page-admin-backups.js"></script>
+</body>
+</html>
