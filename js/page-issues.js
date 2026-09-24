@@ -326,17 +326,19 @@
     if (!issue) return;
     if (!canManage(issue)) { toast('You can only delete your own issues.'); return; }
 
-    var ok = await ET.confirm('Delete “' + issue.title + '”? This cannot be undone.',
-      { title: 'Delete issue', okLabel: 'Delete' });
+    var ok = await ET.confirm('Move “' + issue.title + '” to the recycle bin? An admin can restore it.',
+      { title: 'Delete issue', okLabel: 'Move to bin' });
     if (!ok) return;
 
     var sb = ET.getClient();
     if (!sb) return;
-    var res = await sb.from('issues').delete().eq('id', id);
+    // Soft delete: the row stays in the database, hidden, until the bin is emptied.
+    var res = await sb.from('issues').update({ deleted_at: new Date().toISOString() }).eq('id', id);
     if (res.error) { toast(ET.friendlyError(res.error)); return; }
     if (editingId === id) resetIssueForm();
+    delete selection[id];
     await refresh({ silent: true });
-    toast('Issue deleted.');
+    toast('Moved to the recycle bin.');
   }
 
   async function clearDone() {
@@ -344,16 +346,16 @@
     var done = issues.filter(function (i) { return i.status === 'done'; });
     if (!done.length) { toast('No done issues to clear.'); return; }
 
-    var ok = await ET.confirm('Delete ' + done.length + ' done issue(s)? This cannot be undone.',
-      { title: 'Clear done issues', okLabel: 'Delete ' + done.length });
+    var ok = await ET.confirm('Move ' + done.length + ' done issue(s) to the recycle bin?',
+      { title: 'Clear done issues', okLabel: 'Move ' + done.length });
     if (!ok) return;
 
     var sb = ET.getClient();
     if (!sb) return;
-    var res = await sb.from('issues').delete().eq('status', 'done');
+    var res = await sb.from('issues').update({ deleted_at: new Date().toISOString() }).eq('status', 'done');
     if (res.error) { toast(ET.friendlyError(res.error)); return; }
     await refresh({ silent: true });
-    toast('Cleared ' + done.length + ' done issue(s).');
+    toast('Moved ' + done.length + ' done issue(s) to the recycle bin.');
   }
 
   /* ------------------------------ rendering ------------------------------ */
@@ -493,17 +495,17 @@
     if (!isAdmin()) return;
     var ids = selectedIds();
     if (!ids.length) return;
-    var ok = await ET.confirm('Delete ' + ids.length + ' selected issue(s)? This cannot be undone.',
-      { title: 'Delete issues', okLabel: 'Delete ' + ids.length });
+    var ok = await ET.confirm('Move ' + ids.length + ' selected issue(s) to the recycle bin?',
+      { title: 'Delete issues', okLabel: 'Move ' + ids.length });
     if (!ok) return;
     var sb = ET.getClient();
     if (!sb) return;
-    var res = await sb.from('issues').delete().in('id', ids);
+    var res = await sb.from('issues').update({ deleted_at: new Date().toISOString() }).in('id', ids);
     if (res.error) { toast(ET.friendlyError(res.error)); return; }
     selection = {};
     if (editingId && ids.indexOf(editingId) !== -1) resetIssueForm();
     await refresh({ silent: true });
-    toast('Deleted ' + ids.length + ' issue(s).');
+    toast('Moved ' + ids.length + ' issue(s) to the recycle bin.');
   }
 
   function bulkSelectAll() {

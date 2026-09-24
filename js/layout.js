@@ -130,6 +130,7 @@
             '</span>' +
           '</div>' +
         '</div>' +
+        '<button type="button" class="btn ghost block" data-install-btn hidden>Install app</button>' +
         '<button type="button" class="btn ghost block" id="logoutBtn">Logout</button>' +
       '</div>';
   }

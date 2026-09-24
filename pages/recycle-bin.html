@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Settings · Issue Tracker</title>
+  <title>Recycle bin · Issue Tracker</title>
   <link rel="manifest" href="../manifest.json" />
   <link rel="apple-touch-icon" href="../apple-touch-icon.png" />
   <meta name="theme-color" content="#4f46e5" />
@@ -15,7 +15,6 @@
   <link rel="stylesheet" href="../styles.css" />
   <link rel="stylesheet" href="../css/app.css" />
   <link rel="stylesheet" href="../css/pages.css" />
-  <!-- ADDED: admin-only sidebar + role badge -->
   <link rel="stylesheet" href="../css/sidebar.css" />
   <link rel="stylesheet" href="../css/mobile-nav.css" />
   <link rel="stylesheet" href="../css/features.css" />
@@ -29,47 +28,25 @@
 
       <main class="page-content">
         <div class="page-head">
-          <h2>Settings</h2>
-          <p>Preferences for this device.</p>
+          <h2>Recycle bin</h2>
+          <p>Deleted issues stay here until you restore them or delete them for good.</p>
         </div>
 
-        <section class="card panel">
-          <div class="setting-row">
-            <div class="setting-text">
-              <span class="name">Appearance</span>
-              <span class="muted small">Night mode, or follow your device. Stored in this browser.</span>
-            </div>
-            <div class="setting-control">
-              <div class="segmented" role="group" aria-label="Appearance">
-                <button type="button" class="seg" data-theme-opt="auto">Auto</button>
-                <button type="button" class="seg" data-theme-opt="light">Light</button>
-                <button type="button" class="seg" data-theme-opt="dark">Night</button>
-              </div>
-            </div>
+        <section class="toolbar">
+          <span class="muted"><strong id="binCount">0</strong> in the bin</span>
+          <div class="filters">
+            <button type="button" class="btn ghost" id="binRefreshBtn">Refresh</button>
+            <button type="button" class="btn danger" id="binEmptyBtn">Empty recycle bin</button>
           </div>
-
-          <div class="setting-row">
-            <div class="setting-text">
-              <span class="name">Filters</span>
-              <span class="muted small">Forget every saved search, status and date range.</span>
-            </div>
-            <div class="setting-control">
-              <button type="button" class="btn" id="clearFiltersBtn">Clear all filters</button>
-            </div>
-          </div>
-
-          <div class="setting-row">
-            <div class="setting-text">
-              <span class="name">Session</span>
-              <span class="muted small">Sign out of this device.</span>
-            </div>
-            <div class="setting-control">
-              <button type="button" class="btn danger" id="settingsLogout">Logout</button>
-            </div>
-          </div>
-
-          <p class="inline-note" id="settingsStatus" role="status"></p>
         </section>
+
+        <section id="binList" class="issue-list" aria-live="polite"></section>
+
+        <div id="binEmpty" class="empty" hidden>
+          <div class="empty-icon">🗑️</div>
+          <h3>The bin is empty</h3>
+          <p class="muted">Issues you delete will appear here.</p>
+        </div>
       </main>
     </div>
   </div>
@@ -85,9 +62,8 @@
   <script src="../js/modal.js"></script>
   <script src="../js/auth.js"></script>
   <script src="../js/layout.js"></script>
-  <!-- ADDED: admin-only sidebar (renders only for admins) -->
   <script src="../js/sidebar.js"></script>
-  <script src="../js/page-settings.js"></script>
+  <script src="../js/page-bin.js"></script>
 <script>
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", function () {
