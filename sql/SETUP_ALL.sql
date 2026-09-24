@@ -4,13 +4,12 @@
 --  Paste this ENTIRE file into Supabase -> SQL Editor -> New query -> RUN.
 --  Safe to run more than once.
 --
---  This is a generated bundle of these four files, in this order:
+--  Generated from these four files, in this order:
 --      supabase\schema.sql
 --      sql\auto_backup.sql
 --      sql\recycle_bin.sql
 --      sql\admin_users.sql
---  Running those four one after another is exactly the same thing, so edit
---  them individually and re-generate rather than editing this file.
+--  Edit those and re-generate rather than editing this bundle.
 -- ============================================================================
 
 
@@ -19,7 +18,7 @@
 -- ############################################################################
 
 -- ============================================================================
---  Issue Tracker â€” Supabase / PostgreSQL schema
+--  Issue Tracker — Supabase / PostgreSQL schema
 -- ----------------------------------------------------------------------------
 --  HOW TO RUN
 --    1. Open your project at https://supabase.com
@@ -31,7 +30,7 @@
 
 
 -- ============================================================================
---  1. PROFILES â€” one row per account. This is where the role lives.
+--  1. PROFILES — one row per account. This is where the role lives.
 -- ============================================================================
 create table if not exists public.profiles (
   id         uuid primary key references auth.users(id) on delete cascade,
@@ -225,7 +224,7 @@ grant select, insert, update, delete on public.issues   to authenticated;
 
 
 -- ============================================================================
---  6. LIVE UPDATES (optional) â€” new issues appear without refreshing.
+--  6. LIVE UPDATES (optional) — new issues appear without refreshing.
 -- ============================================================================
 do $$
 begin
@@ -262,7 +261,7 @@ end $$;
 -- ############################################################################
 
 -- ============================================================================
---  Issue Tracker â€” AUTOMATIC BACKUPS
+--  Issue Tracker — AUTOMATIC BACKUPS
 -- ----------------------------------------------------------------------------
 --  HOW TO RUN
 --    1. Open your project at https://supabase.com
@@ -549,7 +548,7 @@ grant select, delete on public.backups to authenticated;
 
 
 -- ============================================================================
---  8. OPTIONAL â€” A DAILY BACKUP ON QUIET DAYS
+--  8. OPTIONAL — A DAILY BACKUP ON QUIET DAYS
 --     The trigger above only fires when something changes. This adds a daily
 --     safety net at 02:00. pg_cron must be enabled once in the dashboard
 --     (Database -> Extensions -> pg_cron). If it is not, this block simply
@@ -603,7 +602,7 @@ end $$;
 -- ############################################################################
 
 -- ============================================================================
---  Issue Tracker â€” RECYCLE BIN (soft delete)
+--  Issue Tracker — RECYCLE BIN (soft delete)
 -- ----------------------------------------------------------------------------
 --  HOW TO RUN
 --    Supabase -> SQL Editor -> New query -> paste this whole file -> RUN.
@@ -638,7 +637,7 @@ create index if not exists issues_deleted_at_idx on public.issues (deleted_at);
 -- ============================================================================
 --  2. HIDE DELETED ISSUES FROM THE APP
 --     The main app keeps using the same plain "select * from issues" it always
---     did â€” deleted rows simply stop matching. The bin is reached through the
+--     did — deleted rows simply stop matching. The bin is reached through the
 --     functions below instead, which is why nothing else in the app needs
 --     changing just to make deleted issues disappear.
 -- ============================================================================
@@ -685,7 +684,7 @@ revoke all on function public.soft_delete_issue(uuid) from public;
 grant execute on function public.soft_delete_issue(uuid) to authenticated;
 
 
--- "Clear done issues" â€” moves every done issue to the bin in one go.
+-- "Clear done issues" — moves every done issue to the bin in one go.
 create or replace function public.soft_delete_done()
 returns integer
 language plpgsql
@@ -871,7 +870,7 @@ create policy "only admins delete permanently"
 -- ############################################################################
 
 -- ============================================================================
---  Issue Tracker â€” ADMIN USER MANAGEMENT (edit + delete)
+--  Issue Tracker — ADMIN USER MANAGEMENT (edit + delete)
 -- ----------------------------------------------------------------------------
 --  HOW TO RUN
 --    Supabase -> SQL Editor -> New query -> paste this whole file -> RUN.
@@ -882,9 +881,9 @@ create policy "only admins delete permanently"
 --    "admins update profiles" policy. Two things it could not do from the
 --    browser:
 --
---      * rename  â€” fine on its own, but a duplicate username gave back a raw
+--      * rename  — fine on its own, but a duplicate username gave back a raw
 --                  constraint error, so there is a checked function here.
---      * delete  â€” removing an account means deleting from auth.users, and a
+--      * delete  — removing an account means deleting from auth.users, and a
 --                  browser can never be trusted with that. It needs the
 --                  service key, which must never ship to a page. So the delete
 --                  lives in a SECURITY DEFINER function that re-checks the
@@ -913,50 +912,7 @@ alter table public.issues add constraint issues_author_id_fkey
 
 
 -- ============================================================================
---  2. RENAME A USER
---     The role is still changed straight from the Users page using the
---     existing policy; this is only for the username, so a clash comes back
---     as a readable message instead of a constraint violation.
--- ============================================================================
-create or replace function public.admin_rename_user(p_id uuid, p_username text)
-returns void
-language plpgsql
-security definer
-set search_path = public
-as $$
-declare
-  v_username text := btrim(coalesce(p_username, ''));
-begin
-  if not public.is_admin() then
-    raise exception 'Only admins can edit users'
-      using errcode = '42501';
-  end if;
-
-  if v_username = '' then
-    raise exception 'A username cannot be empty';
-  end if;
-
-  if not exists (select 1 from public.profiles where id = p_id) then
-    raise exception 'That account no longer exists';
-  end if;
-
-  if exists (
-    select 1 from public.profiles
-    where lower(username) = lower(v_username) and id <> p_id
-  ) then
-    raise exception 'That username is already taken';
-  end if;
-
-  update public.profiles set username = v_username where id = p_id;
-end;
-$$;
-
-revoke all on function public.admin_rename_user(uuid, text) from public;
-grant execute on function public.admin_rename_user(uuid, text) to authenticated;
-
-
--- ============================================================================
---  3. DELETE A USER
+--  2. DELETE A USER
 --     Removes the account for good: the auth.users row goes, which takes the
 --     matching profiles row with it. Their issues are detached first, so they
 --     survive even on a database still carrying the older CASCADE constraint.
