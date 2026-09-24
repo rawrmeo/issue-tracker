@@ -127,6 +127,182 @@
       '</div>';
   }
 
+  /* ============================ notifications ===========================
+   * A bell in the topbar with an unread count and a short list, kept in
+   * localStorage per account.
+   *
+   * Why localStorage and not a table: the list is a convenience, not a
+   * record. It needs no migration, works the moment this file loads, and a
+   * reporter still gets "your issue was marked Done" without anyone having to
+   * run extra SQL first.
+   *
+   * Only things that concern the signed-in person are pushed in - see
+   * worthNotifying() in page-issues.js. A reporter hears about their own
+   * issues; an admin hears about everything.
+   * ==================================================================== */
+  var NOTIF_LIMIT = 40;
+  var NOTIF_COLOUR = {
+    created: '#4f46e5', pending: '#b45309', fixing: '#2563eb',
+    done: '#15803d', removed: '#dc2626'
+  };
+
+  var notifUser = null;
+  var notifList = [];
+  var notifSeen = 0;
+
+  function notifKey(user, suffix) {
+    var who = (user && (user.username || user.id)) || 'guest';
+    return 'it.notifications.' + who + (suffix || '');
+  }
+
+  function notifLoad(user) {
+    notifUser = user;
+    try { notifList = JSON.parse(localStorage.getItem(notifKey(user)) || '[]'); } catch (e) { notifList = []; }
+    try { notifSeen = Number(localStorage.getItem(notifKey(user, '.seen')) || 0); } catch (e) { notifSeen = 0; }
+  }
+
+  function notifSave() {
+    try { localStorage.setItem(notifKey(notifUser), JSON.stringify(notifList.slice(0, NOTIF_LIMIT))); } catch (e) {}
+  }
+
+  function notifUnread() {
+    return notifList.filter(function (n) { return n.at > notifSeen; }).length;
+  }
+
+  function notifPaintBadge() {
+    var badge = $('notifBadge');
+    if (!badge) return;
+    var n = notifUnread();
+    badge.textContent = n > 99 ? '99+' : String(n);
+    badge.hidden = n === 0;
+  }
+
+  function notifColour(kind) {
+    return NOTIF_COLOUR[kind] || '#6b7280';
+  }
+
+  /** Styles are injected once, so no page needs a new stylesheet. */
+  function notifStyles() {
+    if ($('notifStyles')) return;
+    var style = document.createElement('style');
+    style.id = 'notifStyles';
+    style.textContent = [
+      '.notif-wrap{position:relative}',
+      '.notif-btn{position:relative}',
+      '.notif-badge{position:absolute;top:-4px;right:-4px;min-width:16px;height:16px;padding:0 4px;',
+      'border-radius:999px;background:#dc2626;color:#fff;font-size:10px;font-weight:700;',
+      'display:flex;align-items:center;justify-content:center;line-height:1}',
+      '.notif-panel{position:absolute;right:0;top:calc(100% + .5rem);width:min(88vw,330px);max-height:70vh;',
+      'overflow:auto;background:var(--surface);border:1px solid var(--border);border-radius:12px;',
+      'box-shadow:0 12px 34px rgba(16,20,30,.22);z-index:90}',
+      '.notif-head{display:flex;align-items:center;gap:.5rem;padding:.6rem .75rem;',
+      'border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--surface)}',
+      '.notif-head strong{margin-right:auto;font-size:.85rem}',
+      '.notif-head button{background:none;border:0;color:var(--accent);font-size:.75rem;cursor:pointer;padding:.15rem .25rem}',
+      '.notif-item{display:flex;gap:.6rem;padding:.65rem .75rem;border-bottom:1px solid var(--border)}',
+      '.notif-item:last-child{border-bottom:0}',
+      '.notif-item.unread{background:color-mix(in srgb, var(--accent) 8%, transparent)}',
+      '.notif-dot{flex:none;width:8px;height:8px;border-radius:50%;margin-top:.35rem}',
+      '.notif-title{display:block;font-size:.82rem}',
+      '.notif-body{display:block;color:var(--muted);font-size:.78rem;word-break:break-word}',
+      '.notif-when{display:block;color:var(--muted);font-size:.72rem;margin-top:.1rem}',
+      '.notif-empty{padding:.9rem .75rem;color:var(--muted);font-size:.85rem}'
+    ].join('');
+    document.head.appendChild(style);
+  }
+
+  function notifPanelHtml() {
+    if (!notifList.length) {
+      return '<div class="notif-empty">Nothing yet. Updates to your issues show up here.</div>';
+    }
+    return notifList.map(function (n) {
+      return '<div class="notif-item' + (n.at > notifSeen ? ' unread' : '') + '">' +
+        '<span class="notif-dot" style="background:' + notifColour(n.kind) + '"></span>' +
+        '<span style="min-width:0">' +
+          '<span class="notif-title">' + ET.escapeHtml(n.title) + '</span>' +
+          (n.body ? '<span class="notif-body">' + ET.escapeHtml(n.body) + '</span>' : '') +
+          '<span class="notif-when">' + ET.escapeHtml(ET.timeAgo(n.at)) + '</span>' +
+        '</span>' +
+      '</div>';
+    }).join('');
+  }
+
+  function notifRenderPanel() {
+    var panel = $('notifPanel');
+    if (!panel) return;
+
+    panel.innerHTML =
+      '<div class="notif-head">' +
+        '<strong>Notifications</strong>' +
+        '<button type="button" id="notifMarkRead">Mark read</button>' +
+        '<button type="button" id="notifClear">Clear</button>' +
+      '</div>' +
+      notifPanelHtml();
+
+    var markBtn = $('notifMarkRead');
+    if (markBtn) markBtn.addEventListener('click', function () {
+      notifSeen = Date.now();
+      try { localStorage.setItem(notifKey(notifUser, '.seen'), String(notifSeen)); } catch (e) {}
+      notifPaintBadge();
+      notifRenderPanel();
+    });
+
+    var clearBtn = $('notifClear');
+    if (clearBtn) clearBtn.addEventListener('click', function () {
+      notifList = [];
+      notifSave();
+      notifPaintBadge();
+      notifRenderPanel();
+    });
+  }
+
+  function notifWire() {
+    var btn = $('notifBtn');
+    var panel = $('notifPanel');
+    if (!btn || !panel) return;
+
+    notifStyles();
+    notifRenderPanel();
+    notifPaintBadge();
+
+    btn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      panel.hidden = !panel.hidden;
+      btn.setAttribute('aria-expanded', String(!panel.hidden));
+      if (!panel.hidden) {                       // opening counts as reading
+        notifSeen = Date.now();
+        try { localStorage.setItem(notifKey(notifUser, '.seen'), String(notifSeen)); } catch (err) {}
+        notifPaintBadge();
+        notifRenderPanel();
+      }
+    });
+
+    document.addEventListener('click', function (e) {
+      if (!panel.hidden && !e.target.closest('.notif-wrap')) {
+        panel.hidden = true;
+        btn.setAttribute('aria-expanded', 'false');
+      }
+    });
+  }
+
+  ET.notifications = {
+    load: function (user) { notifLoad(user); },
+    push: function (entry) {
+      if (!notifUser) return;
+      notifList.unshift({
+        at: entry.at || Date.now(),
+        kind: entry.kind || 'created',
+        title: entry.title || '',
+        body: entry.body || ''
+      });
+      notifSave();
+      notifPaintBadge();
+      var panel = $('notifPanel');
+      if (panel && !panel.hidden) notifRenderPanel();
+    },
+    unread: notifUnread
+  };
+
   function topbarHtml(title, user) {
     var admin = user.role === ET.ADMIN;
     return '' +
@@ -139,6 +315,12 @@
       '</div>' +
       '<div class="topbar-actions">' +
         '<span class="live-dot" id="liveDot" title="Live updates"></span>' +
+        '<div class="notif-wrap">' +
+          '<button type="button" class="btn ghost icon notif-btn" id="notifBtn" aria-label="Notifications" aria-expanded="false">🔔' +
+            '<span class="notif-badge" id="notifBadge" hidden>0</span>' +
+          '</button>' +
+          '<div class="notif-panel" id="notifPanel" hidden></div>' +
+        '</div>' +
         '<button type="button" class="btn ghost icon" id="themeBtn" title="Toggle light / dark" aria-label="Toggle theme">🌙</button>' +
         '<div class="role-menu">' +
           '<button type="button" class="btn" id="roleMenuBtn" aria-haspopup="true" aria-expanded="false">' +
@@ -222,6 +404,11 @@
 
       applyTheme(currentTheme());
       wire();
+
+      // The bell lives in the topbar, so it is available on every page and to
+      // every role - not just admins.
+      ET.notifications.load(user);
+      notifWire();
 
       // ADDED: admin-only status sidebar. Guarded, so pages that don't load
       // js/sidebar.js (every page except Issues) are unaffected.

@@ -149,6 +149,21 @@
     return host;
   }
 
+  /* Who cares about this change? A reporter only about their own issues; an
+     admin about everything on the board. */
+  function worthNotifying(row) {
+    if (isAdmin()) return true;
+    var me = ET.auth && ET.auth.user && ET.auth.user.id;
+    return Boolean(row && row.author_id && me && row.author_id === me);
+  }
+
+  /** Add it to the bell list as well as the corner alert. */
+  function notify(kind, title, body, row) {
+    if (!ET.notifications || !ET.notifications.push) return;
+    if (!worthNotifying(row)) return;
+    ET.notifications.push({ kind: kind, title: title, body: body });
+  }
+
   function showAlert(kind, heading, detail) {
     var card = document.createElement('div');
     card.style.cssText =
@@ -195,6 +210,7 @@
           var row = payload.new || {};
           flashLive();
           showAlert('created', 'New issue reported', row.title || '');
+          notify('created', 'New issue reported', row.title || '', row);
           refresh({ silent: true });
         })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'issues' },
@@ -205,10 +221,10 @@
           // Alert on a status change only - an edit that leaves the status
           // alone should not shout.
           if (before && row.status && before.status !== row.status) {
+            var label = 'Status changed to ' + (STATUS_LABEL[row.status] || row.status);
             flashLive();
-            showAlert(row.status,
-              'Status changed to ' + (STATUS_LABEL[row.status] || row.status),
-              row.title || '');
+            showAlert(row.status, label, row.title || '');
+            notify(row.status, label, row.title || '', row);
           }
           refresh({ silent: true });
         })
@@ -219,6 +235,7 @@
           // REPLICA IDENTITY FULL, so fall back to a plain message.
           flashLive();
           showAlert('removed', 'Issue removed', row.title || 'An issue was removed.');
+          notify('removed', 'Issue removed', row.title || '', row);
           refresh({ silent: true });
         })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' },
