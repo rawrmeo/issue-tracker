@@ -29,7 +29,6 @@
 
   var ADMIN_LINKS = [
     { label: 'Reported',    icon: '📥', href: 'admin-reported.html' },
-    { label: 'All issues',  icon: '🏠', href: 'admin-all.html' },
     { sep: true },
     { label: 'Users',       icon: '👥', href: 'users.html' },
     { label: 'Backups',     icon: '💾', href: 'admin-backups.html' },
