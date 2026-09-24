@@ -142,6 +142,38 @@
       '</div>';
   }
 
+  /* =========================== bottom nav (mobile) ======================= */
+
+  /* A fixed bottom bar for phones, mirroring the main NAV entries. The
+     hamburger in the topbar still opens the full sidebar, so the admin status
+     pages stay reachable. Hidden by CSS on wider screens. */
+  function bottomNavHtml(user, active) {
+    var admin = user.role === ET.ADMIN;
+    var items = NAV.filter(function (item) { return !item.admin || admin; });
+
+    return items.map(function (item) {
+      return '<a class="bn-link' + (item.key === active ? ' active' : '') + '"' +
+        ' href="' + item.href + '"' +
+        (item.key === active ? ' aria-current="page"' : '') + '>' +
+        '<span class="bn-icon" aria-hidden="true">' + item.icon + '</span>' +
+        '<span class="bn-label">' + item.label + '</span>' +
+      '</a>';
+    }).join('');
+  }
+
+  function mountBottomNav(user, active) {
+    var old = $('bottomNav');
+    if (old && old.parentNode) old.parentNode.removeChild(old);
+
+    var nav = document.createElement('nav');
+    nav.id = 'bottomNav';
+    nav.className = 'bottom-nav';
+    nav.setAttribute('aria-label', 'Primary');
+    nav.innerHTML = bottomNavHtml(user, active);
+
+    document.body.appendChild(nav);
+  }
+
   /* ================================ wiring ============================== */
 
   function wire() {
@@ -216,6 +248,8 @@
       if (ET.sidebar && typeof ET.sidebar.mount === 'function') {
         ET.sidebar.mount(user);
       }
+
+      mountBottomNav(user, opts.active || '');
 
       document.title = (opts.title ? opts.title + ' · ' : '') + 'Issue Tracker';
       return user;
