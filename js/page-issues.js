@@ -164,6 +164,26 @@
     ET.notifications.push({ kind: kind, title: title, body: body });
   }
 
+  /* A status change WE made, remembered for a minute.
+     Our own update refreshes the list immediately, so by the time the realtime
+     event comes back the cached status is already the new one and the change
+     would look like no change at all. This keeps "what it was" for our own
+     writes, so the bell still rings for them. */
+  var myStatusChanges = {};
+
+  function rememberMyStatusChange(id, from, to) {
+    if (!id) return;
+    myStatusChanges[id] = { from: from, to: to, at: Date.now() };
+  }
+
+  function takeMyStatusChange(id) {
+    var entry = myStatusChanges[id];
+    if (!entry) return null;
+    delete myStatusChanges[id];
+    if (Date.now() - entry.at > 60000) return null;
+    return entry;
+  }
+
   function showAlert(kind, heading, detail) {
     var card = document.createElement('div');
     card.style.cssText =
@@ -216,11 +236,25 @@
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'issues' },
         function (payload) {
           var row = payload.new || {};
-          var before = issues.filter(function (i) { return i.id === row.id; })[0];
+          var previous = payload.old || {};
+
+          // With REPLICA IDENTITY FULL the event itself carries what the
+          // status WAS, and that is the only reliable source: by the time this
+          // event lands, the list may already have refreshed, in which case
+          // our own cache holds the NEW value and the change looks like none.
+          var wasStatus = previous.status;
+          if (!wasStatus) {
+            var mine = takeMyStatusChange(row.id);
+            if (mine) wasStatus = mine.from;
+          }
+          if (!wasStatus) {
+            var cached = issues.filter(function (i) { return i.id === row.id; })[0];
+            wasStatus = cached ? cached.status : null;
+          }
 
           // Alert on a status change only - an edit that leaves the status
           // alone should not shout.
-          if (before && row.status && before.status !== row.status) {
+          if (row.status && wasStatus && wasStatus !== row.status) {
             var label = 'Status changed to ' + (STATUS_LABEL[row.status] || row.status);
             flashLive();
             showAlert(row.status, label, row.title || '');
@@ -231,8 +265,8 @@
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'issues' },
         function (payload) {
           var row = payload.old || {};
-          // The delete payload only carries the key unless the table uses
-          // REPLICA IDENTITY FULL, so fall back to a plain message.
+          // With REPLICA IDENTITY FULL this carries the whole old row, so the
+          // title is there and a reporter can be told which issue went.
           flashLive();
           showAlert('removed', 'Issue removed', row.title || 'An issue was removed.');
           notify('removed', 'Issue removed', row.title || '', row);
@@ -314,6 +348,11 @@
         // keeps the request honest.
         if (isAdmin()) patch.status = $('issueStatus').value;
 
+        if (patch.status) {
+          var wasIssue = issues.filter(function (i) { return i.id === editingId; })[0];
+          rememberMyStatusChange(editingId, wasIssue ? wasIssue.status : null, patch.status);
+        }
+
         var upd = await sb.from('issues').update(patch).eq('id', editingId);
         if (upd.error) { toast(ET.friendlyError(upd.error)); return; }
 
@@ -354,6 +393,9 @@
     if (STATUSES.indexOf(status) === -1) return;
     var sb = ET.getClient();
     if (!sb) return;
+
+    var current = issues.filter(function (i) { return i.id === id; })[0];
+    rememberMyStatusChange(id, current ? current.status : null, status);
 
     var res = await sb.from('issues').update({ status: status }).eq('id', id);
     if (res.error) toast(ET.friendlyError(res.error));

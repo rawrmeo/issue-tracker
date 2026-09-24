@@ -236,6 +236,13 @@ begin
   end;
 end $$;
 
+-- Realtime sends only the primary key in the "old" record unless the table is
+-- set to REPLICA IDENTITY FULL. Without this an update event cannot say what
+-- the status WAS, so the app cannot tell a real status change from any other
+-- edit - and a delete event arrives with no title. Setting it costs a little
+-- more write-ahead log per update, which is nothing at this size.
+alter table public.issues replica identity full;
+
 
 -- ============================================================================
 --  DONE.
