@@ -150,6 +150,8 @@ set search_path = public
 as $$
 declare
   n_restored integer := 0;
+  n_total    integer := 0;
+  n_usable   integer := 0;
 begin
   if not public.is_admin() then
     raise exception 'Only admins can restore a backup'
@@ -158,6 +160,23 @@ begin
 
   if not exists (select 1 from public.backups where id = p_id) then
     raise exception 'That backup no longer exists';
+  end if;
+
+  -- How many issues the snapshot names, and how many can actually come back.
+  select jsonb_array_length(payload) into n_total
+  from public.backups where id = p_id;
+
+  select count(*) into n_usable
+  from jsonb_array_elements((select payload from public.backups where id = p_id)) as r
+  where exists (
+    select 1 from auth.users u where u.id = (r ->> 'author_id')::uuid
+  );
+
+  -- Guard against a silent wipe. A snapshot that names issues but whose
+  -- reporters have all been deleted would otherwise clear the whole board
+  -- and report "0 restored". Refuse instead, and change nothing.
+  if n_total > 0 and n_usable = 0 then
+    raise exception 'This backup only references accounts that no longer exist, so restoring it would empty the board. Nothing was changed.';
   end if;
 
   -- Safety net: never let a restore destroy the only copy.
