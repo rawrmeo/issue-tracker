@@ -20,6 +20,8 @@ enforced by the **database**, not by the browser.
 - **Filter and search** — by status, priority, and free text; sort several ways.
 - **Stats bar** — total / pending / fixing / done / high-priority open.
 - **Export** — admin can download every issue as JSON.
+- **Automatic backups** — the database snapshots every issue by itself; admins
+  can view, download or restore any snapshot from the **Backups** page.
 - **Light / dark theme.**
 - **No build step** — plain HTML/CSS/JS, deploys to Vercel as-is.
 
@@ -35,6 +37,7 @@ enforced by the **database**, not by the browser.
 | Clear done issues | ✅ | ❌ |
 | Promote / demote users | ✅ | ❌ |
 | Export issues | ✅ | ❌ |
+| View / restore / delete backups | ✅ | ❌ |
 
 New issues always start as **Pending**. A reporter can never change a status.
 A user sees a banner explaining this, and each issue's status dropdown is

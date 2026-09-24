@@ -33,6 +33,7 @@
     { label: 'Fixing',     icon: '🔧', href: 'admin-fixing.html' },
     { label: 'Done',       icon: '✅', href: 'admin-done.html' },
     { label: 'Users',      icon: '👥', href: 'users.html' },
+    { label: 'Backups',    icon: '💾', href: 'admin-backups.html' },
     { sep: true },
     { label: 'All issues', icon: '🏠', href: 'admin-all.html' }
   ];
