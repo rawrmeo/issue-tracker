@@ -169,7 +169,10 @@ begin
   end if;
 
   -- A reporter must not be able to hand their issue to someone else.
-  if new.author_id is distinct from old.author_id then
+  -- Admins are exempt: removing an account detaches its issues
+  -- (issues.author_id is ON DELETE SET NULL), and that detach is an UPDATE
+  -- which would otherwise be refused right here.
+  if new.author_id is distinct from old.author_id and not public.is_admin() then
     raise exception 'The reporter of an issue cannot be changed'
       using errcode = '42501';
   end if;
@@ -213,6 +216,13 @@ begin
     when undefined_object then null;
   end;
 end $$;
+
+-- Realtime sends only the primary key in the "old" record unless the table is
+-- set to REPLICA IDENTITY FULL. Without this an update event cannot say what
+-- the status WAS, so the app cannot tell a real status change from any other
+-- edit - and a delete event arrives with no title. Setting it costs a little
+-- more write-ahead log per update, which is nothing at this size.
+alter table public.issues replica identity full;
 
 
 -- ============================================================================

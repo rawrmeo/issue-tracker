@@ -30,6 +30,14 @@
     return document.body.dataset.adminStatus || '';
   }
 
+  /**
+   * An explicit data-admin-title on <body> wins over the status default, so a
+   * page that shows several statuses at once can still name itself.
+   */
+  function pageTitle(status) {
+    return document.body.dataset.adminTitle || TITLES[status] || '';
+  }
+
   /* --------------- 1. click the EXISTING status filter button ------------ */
 
   function applyStatusFilter() {
@@ -114,9 +122,10 @@
     guardAdmin();
 
     var status = pageStatus();
+    var title = pageTitle(status);
 
-    if (TITLES[status] && ET.layout && ET.layout.setTitle) {
-      ET.layout.setTitle(TITLES[status]);
+    if (title && ET.layout && ET.layout.setTitle) {
+      ET.layout.setTitle(title);
     }
 
     confirmBeforeDone();

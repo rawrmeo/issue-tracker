@@ -9,6 +9,10 @@ enforced by the **database**, not by the browser.
 
 **➡️ First time here? Follow [`SETUP.md`](SETUP.md) to connect your database.**
 
+> **Or run [`sql/SETUP_ALL.sql`](sql/SETUP_ALL.sql) in the SQL Editor.** It is that
+> same setup bundled into one paste — base schema plus automatic backups, the
+> recycle bin and admin user management.
+
 ---
 
 ## Features
@@ -20,6 +24,14 @@ enforced by the **database**, not by the browser.
 - **Filter and search** — by status, priority, and free text; sort several ways.
 - **Stats bar** — total / pending / fixing / done / high-priority open.
 - **Export** — admin can download every issue as JSON.
+- **Automatic backups** — the database snapshots every issue by itself; admins
+  can view, download or restore any snapshot from the **Backups** page, and
+  switch the automatic half off if they would rather back up by hand.
+- **Recycle bin** — deleting an issue moves it to the bin instead of destroying
+  it. Nothing is removed for good until an admin says so, from the
+  **Recycle bin** page.
+- **User management** — admins can promote, demote, rename or delete an
+  account. Deleting keeps that person's issues on the board.
 - **Light / dark theme.**
 - **No build step** — plain HTML/CSS/JS, deploys to Vercel as-is.
 
@@ -34,7 +46,10 @@ enforced by the **database**, not by the browser.
 | Set status to **Fixing** or **Done** | ✅ | ❌ |
 | Clear done issues | ✅ | ❌ |
 | Promote / demote users | ✅ | ❌ |
+| Rename or delete a user | ✅ | ❌ |
 | Export issues | ✅ | ❌ |
+| View / restore / delete backups | ✅ | ❌ |
+| Restore from, or empty, the recycle bin | ✅ | ❌ |
 
 New issues always start as **Pending**. A reporter can never change a status.
 A user sees a banner explaining this, and each issue's status dropdown is
