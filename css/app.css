@@ -185,3 +185,26 @@
   .page-content { padding: 1.1rem .9rem 3rem; }
   .topbar { padding: .7rem .9rem; }
 }
+/* ============================================================================
+   MOBILE
+   ----------------------------------------------------------------------------
+   Notched screens: keep the chrome clear of rounded corners and the home
+   indicator. Then make anything you tap at least ~44px tall on a phone.
+   ========================================================================= */
+.app-shell {
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+.sidebar { padding-top: env(safe-area-inset-top); }
+.page-content { padding-bottom: calc(1rem + env(safe-area-inset-bottom)); }
+body { -webkit-text-size-adjust: 100%; }
+
+@media (max-width: 560px) {
+  .btn:not(.icon) { min-height: 44px; }
+  .nav-link, .as-link { min-height: 44px; }
+  .field input, .field select, .field textarea {
+    min-height: 44px;
+    font-size: 16px;      /* stops iOS zooming in when a field is focused */
+  }
+  .page-content { padding-left: 14px; padding-right: 14px; }
+}

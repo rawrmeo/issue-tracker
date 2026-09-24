@@ -78,6 +78,108 @@
 
   /* ============================== rendering ============================== */
 
+  /* ============================ install prompt ==========================
+   * Chrome, Edge and Android fire "beforeinstallprompt", which we can trigger
+   * from our own button. Safari has no such event, so there the button says
+   * what to tap instead. It never shows when the app is already installed.
+   * =================================================================== */
+  var installPrompt = null;
+
+  function isStandalone() {
+    return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
+           window.navigator.standalone === true;
+  }
+
+  function installShouldShow() {
+    // Always offered unless it is already installed. Hiding it when the browser
+    // has no install prompt (Safari, Firefox) just made the feature look
+    // missing, so the button stays and explains the manual route instead.
+    return !isStandalone();
+  }
+
+  function refreshInstall() {
+    var b = $('installAppBtn');
+    if (b) b.hidden = !installShouldShow();
+  }
+
+  /* What to say when the browser has no install prompt of its own. */
+  function installHelp() {
+    var ua = navigator.userAgent;
+    if (/iPad|iPhone|iPod/.test(ua)) {
+      return 'Install on iPhone / iPad\n\n' +
+             '1. Tap the Share button (the square with an arrow)\n' +
+             '2. Scroll down and tap "Add to Home Screen"\n' +
+             '3. Tap Add';
+    }
+    if (/Android/.test(ua)) {
+      return 'Install on Android\n\n' +
+             'Open the browser menu (the three dots) and tap\n' +
+             '"Install app" or "Add to Home screen".';
+    }
+    if (/Firefox/i.test(ua)) {
+      return 'Firefox cannot install web apps on desktop.\n\n' +
+             'Open this page in Chrome or Edge instead - an install icon then\n' +
+             'appears in the address bar.';
+    }
+    return 'Install this app\n\n' +
+           "Look for the install icon in your browser's address bar, or open\n" +
+           'the browser menu and choose "Install app".';
+  }
+
+  /* Clicking before the browser has fired beforeinstallprompt used to show the
+     "look in your address bar" message immediately - even though the prompt was
+     about to arrive a moment later. So wait briefly for it first. */
+  function waitForInstallPrompt(timeoutMs) {
+    return new Promise(function (resolve) {
+      if (installPrompt) return resolve(installPrompt);
+
+      var settled = false;
+      function finish(value) {
+        if (settled) return;
+        settled = true;
+        resolve(value);
+      }
+
+      window.addEventListener('beforeinstallprompt', function () { finish(installPrompt); });
+      setTimeout(function () { finish(installPrompt); }, timeoutMs || 2000);
+    });
+  }
+
+  function doInstall() {
+    // A brief note, so the short wait does not look like nothing happened.
+    if (!installPrompt && ET.toast) ET.toast('Looking for the install option…');
+
+    waitForInstallPrompt(2000).then(function (prompt) {
+      if (!prompt) { window.alert(installHelp()); return; }
+
+      prompt.prompt();
+      prompt.userChoice.then(function (choice) {
+        if (choice && choice.outcome === 'accepted' && ET.toast) ET.toast('Installing…');
+        installPrompt = null;
+        refreshInstall();
+      });
+    });
+  }
+
+  window.addEventListener('beforeinstallprompt', function (e) {
+    e.preventDefault();                 // ask in our own time, from our own button
+    installPrompt = e;
+    refreshInstall();
+  });
+
+  window.addEventListener('appinstalled', function () {
+    installPrompt = null;
+    refreshInstall();
+    if (ET.toast) ET.toast('App installed');
+  });
+
+  function wireInstall() {
+    var b = $('installAppBtn');
+    if (!b) return;
+    b.addEventListener('click', doInstall);
+    refreshInstall();
+  }
+
   function linkHtml(item, active) {
     return '<a class="nav-link' + (item.key === active ? ' active' : '') + '"' +
       ' href="' + item.href + '"' +
@@ -113,6 +215,14 @@
       '<nav class="nav" aria-label="Main">' + links + '</nav>' +
 
       '<div class="sidebar-foot">' +
+        // Only rendered when the app can actually be installed, and hidden
+        // again once it has been.
+        '<button type="button" class="nav-link" id="installAppBtn" hidden ' +
+          'style="width:100%;background:none;border:0;cursor:pointer;font:inherit;' +
+          'text-align:left;color:var(--accent);">' +
+          '<span class="nav-icon" aria-hidden="true">⬇️</span>' +
+          '<span>Install app</span>' +
+        '</button>' +
         '<nav class="nav nav-foot" aria-label="Account">' + footerLinks + '</nav>' +
         '<div class="user-card">' +
           '<span class="avatar" id="sidebarAvatar">' + initial + '</span>' +
@@ -398,6 +508,7 @@
 
       var sidebar = $('sidebar');
       if (sidebar) sidebar.innerHTML = sidebarHtml(user, opts.active || '');
+      wireInstall();
 
       var topbar = $('topbar');
       if (topbar) topbar.innerHTML = topbarHtml(opts.title || '', user);
