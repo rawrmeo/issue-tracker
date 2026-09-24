@@ -1,0 +1,1340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Mini Issue Tracker</title>
+
+<!-- Supabase client (loaded from a CDN; no install, no build step).
+     If you are offline this fails silently and the app runs in demo mode. -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<style>
+  :root {
+    --bg: #f5f6f8;
+    --surface: #ffffff;
+    --surface-2: #f0f1f4;
+    --border: #e2e4e9;
+    --text: #1b1d22;
+    --muted: #6b7280;
+    --accent: #4f46e5;
+    --accent-soft: #eef0ff;
+    --done: #15803d;
+    --done-soft: #e8f6ed;
+    --pending: #b45309;
+    --pending-soft: #fdf3e3;
+    --high: #dc2626;
+    --medium: #d97706;
+    --low: #0891b2;
+    --danger: #dc2626;
+    --shadow: 0 1px 2px rgba(16, 20, 30, .06), 0 8px 24px rgba(16, 20, 30, .08);
+    --radius: 12px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1117;
+      --surface: #171a22;
+      --surface-2: #1e222c;
+      --border: #2a2f3b;
+      --text: #e7e9ee;
+      --muted: #9aa2b1;
+      --accent: #8b8cf7;
+      --accent-soft: #232544;
+      --done: #4ade80;
+      --done-soft: #14301f;
+      --pending: #fbbf24;
+      --pending-soft: #33260f;
+      --high: #f87171;
+      --medium: #fbbf24;
+      --low: #22d3ee;
+      --danger: #f87171;
+      --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 12px 32px rgba(0, 0, 0, .35);
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 15px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  button, input, select, textarea { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+  [hidden] { display: none !important; }
+
+  /* ============ buttons ============ */
+  .btn {
+    display: inline-flex; align-items: center; gap: 7px;
+    border: 1px solid var(--border); background: var(--surface);
+    padding: 8px 13px; border-radius: 9px; font-size: 14px; font-weight: 550;
+    transition: background .15s, border-color .15s, transform .05s;
+  }
+  .btn:hover { background: var(--surface-2); }
+  .btn:active { transform: translateY(1px); }
+  .btn:disabled { opacity: .6; cursor: default; }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn.primary:hover:not(:disabled) { filter: brightness(1.07); }
+  .btn.ghost { border-color: transparent; background: transparent; padding: 7px 9px; }
+  .btn.ghost:hover { background: var(--surface-2); }
+  .btn.danger { color: var(--danger); }
+  .btn.icon { padding: 7px; line-height: 0; }
+  .btn svg { width: 16px; height: 16px; }
+  .btn.block { width: 100%; justify-content: center; }
+
+  /* ============ auth screens ============ */
+  .auth-wrap { min-height: 100vh; display: grid; place-items: center; padding: 24px 18px; }
+  .auth-card {
+    width: 100%; max-width: 400px; background: var(--surface);
+    border: 1px solid var(--border); border-radius: 16px; padding: 26px;
+    box-shadow: var(--shadow);
+  }
+  .auth-brand { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; }
+  .auth-brand h1 { font-size: 17px; margin: 0; letter-spacing: -.2px; }
+  .auth-brand p { margin: 0; font-size: 12px; color: var(--muted); }
+  .auth-card h2 { font-size: 16px; margin: 0 0 6px; }
+  .auth-card .sub { color: var(--muted); font-size: 13.5px; margin: 0 0 18px; }
+  .auth-foot { margin-top: 16px; font-size: 13.5px; display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .auth-foot.single { justify-content: flex-start; }
+  .auth-foot.center { justify-content: center; }
+  .linkbtn {
+    background: none; border: 0; padding: 0; color: var(--accent);
+    font-size: 13.5px; font-weight: 550;
+  }
+  .linkbtn:hover { text-decoration: underline; }
+  .note { font-size: 12.5px; color: var(--muted); margin-top: 14px; }
+  .note code { background: var(--surface-2); padding: 1px 5px; border-radius: 5px; }
+
+  /* ============ fields ============ */
+  .field { margin-bottom: 14px; }
+  .field label { display: block; font-size: 12.5px; font-weight: 600; color: var(--muted); margin-bottom: 5px; }
+  .field input, .field textarea, .field select {
+    width: 100%; background: var(--surface-2); border: 1px solid var(--border);
+    border-radius: 9px; padding: 9px 11px;
+  }
+  .field input:focus, .field textarea:focus, .field select:focus {
+    outline: 2px solid var(--accent); outline-offset: -1px; border-color: transparent;
+  }
+  .field textarea { resize: vertical; min-height: 76px; }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+  .msg { font-size: 13px; margin: 0 0 12px; display: none; }
+  .msg.show { display: block; }
+  .msg.error { color: var(--danger); }
+  .msg.ok { color: var(--done); }
+  .msg.info { color: var(--muted); }
+
+  .banner {
+    background: var(--pending-soft); color: var(--pending);
+    border: 1px solid var(--pending); border-radius: 10px;
+    padding: 9px 13px; font-size: 12.5px; margin-bottom: 14px;
+  }
+  .banner b { font-weight: 700; }
+
+  /* ============ app shell ============ */
+  .app { max-width: 880px; margin: 0 auto; padding: 28px 20px 80px; }
+  header.top { display: flex; align-items: center; gap: 12px; margin-bottom: 22px; flex-wrap: wrap; }
+  .brand { display: flex; align-items: center; gap: 10px; margin-right: auto; }
+  .logo {
+    width: 34px; height: 34px; border-radius: 10px; flex: none;
+    background: var(--accent); color: #fff; display: grid; place-items: center;
+  }
+  .brand h1 { font-size: 18px; margin: 0; letter-spacing: -.2px; }
+  .brand p { margin: 0; font-size: 12px; color: var(--muted); }
+  .who {
+    font-size: 13px; color: var(--muted); max-width: 180px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+
+  /* ============ stats / toolbar ============ */
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; }
+  .stat {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 13px 16px;
+  }
+  .stat .n { font-size: 24px; font-weight: 700; line-height: 1.2; }
+  .stat .l { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+  .stat.done .n { color: var(--done); }
+  .stat.pending .n { color: var(--pending); }
+
+  .toolbar { display: flex; gap: 10px; align-items: center; margin-bottom: 16px; flex-wrap: wrap; }
+  .tabs { display: flex; gap: 3px; background: var(--surface-2); padding: 3px; border-radius: 10px; }
+  .tab {
+    border: 0; background: transparent; color: var(--muted);
+    padding: 7px 13px; border-radius: 8px; font-size: 13.5px; font-weight: 550;
+  }
+  .tab .count { opacity: .7; font-variant-numeric: tabular-nums; margin-left: 2px; }
+  .tab[aria-selected="true"] { background: var(--surface); color: var(--text); box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+  .search { position: relative; flex: 1; min-width: 180px; }
+  .search svg { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; color: var(--muted); }
+  .search input {
+    width: 100%; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 9px; padding: 8px 12px 8px 33px;
+  }
+  .search input:focus { outline: 2px solid var(--accent); outline-offset: -1px; border-color: transparent; }
+
+  /* ============ list ============ */
+  .list { display: flex; flex-direction: column; gap: 9px; }
+  .issue {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 13px 15px; display: flex; gap: 13px; box-shadow: var(--shadow);
+  }
+  .issue.is-done { background: color-mix(in srgb, var(--surface) 88%, var(--done-soft)); }
+  .check {
+    flex: none; width: 21px; height: 21px; margin-top: 1px; border-radius: 6px;
+    border: 1.5px solid var(--border); background: transparent;
+    display: grid; place-items: center; transition: background .15s, border-color .15s;
+  }
+  .check svg { width: 14px; height: 14px; color: #fff; opacity: 0; }
+  .check:hover { border-color: var(--done); }
+  .check[aria-pressed="true"] { background: var(--done); border-color: var(--done); }
+  .check[aria-pressed="true"] svg { opacity: 1; }
+  .body { flex: 1; min-width: 0; }
+  .title { font-weight: 600; word-break: break-word; }
+  .is-done .title { text-decoration: line-through; color: var(--muted); }
+  .desc { color: var(--muted); font-size: 13.5px; margin-top: 3px; white-space: pre-wrap; word-break: break-word; }
+  .meta { display: flex; align-items: center; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+  .pill {
+    font-size: 11.5px; font-weight: 600; padding: 2px 8px; border-radius: 999px;
+    border: 1px solid transparent; text-transform: capitalize;
+  }
+  .pill.pending { background: var(--pending-soft); color: var(--pending); }
+  .pill.done { background: var(--done-soft); color: var(--done); }
+  .pill.high { color: var(--high); border-color: var(--high); }
+  .pill.medium { color: var(--medium); border-color: var(--medium); }
+  .pill.low { color: var(--low); border-color: var(--low); }
+  .when { font-size: 12px; color: var(--muted); }
+  .actions { display: flex; gap: 2px; flex: none; align-self: flex-start; }
+
+  .empty {
+    text-align: center; padding: 56px 20px; color: var(--muted);
+    border: 1px dashed var(--border); border-radius: var(--radius);
+  }
+  .empty svg { width: 36px; height: 36px; opacity: .45; margin-bottom: 8px; }
+  .empty p { margin: 0 0 14px; }
+
+  /* ============ modal ============ */
+  .backdrop {
+    position: fixed; inset: 0; background: rgba(10, 12, 18, .5);
+    display: none; align-items: flex-start; justify-content: center;
+    padding: 40px 16px; z-index: 50; overflow-y: auto; backdrop-filter: blur(2px);
+  }
+  .backdrop.open { display: flex; animation: fade .15s ease; }
+  @keyframes fade { from { opacity: 0; } }
+  .modal {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+    width: 100%; max-width: 520px; padding: 22px; box-shadow: var(--shadow);
+    animation: pop .16s ease;
+  }
+  @keyframes pop { from { transform: translateY(-8px) scale(.98); opacity: 0; } }
+  .modal h2 { margin: 0 0 16px; font-size: 17px; }
+  .modal .foot { display: flex; justify-content: flex-end; gap: 9px; margin-top: 20px; }
+
+  /* ============ toasts ============ */
+  .toasts { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 60; display: flex; flex-direction: column; gap: 8px; }
+  .toast {
+    background: var(--text); color: var(--bg); padding: 9px 16px; border-radius: 999px;
+    font-size: 13.5px; font-weight: 550; box-shadow: var(--shadow);
+    animation: pop .18s ease; max-width: 92vw;
+  }
+  .toast.out { opacity: 0; transition: opacity .3s; }
+
+  @media (max-width: 560px) {
+    .stats { gap: 8px; }
+    .stat { padding: 10px 11px; }
+    .stat .n { font-size: 20px; }
+    .row { grid-template-columns: 1fr; }
+    .brand p { display: none; }
+  }
+  /* ============ built-in docs viewer ============ */
+  .docs-fab {
+    position: fixed; right: 18px; bottom: 18px; z-index: 40;
+    box-shadow: var(--shadow); background: var(--surface);
+  }
+  .docs-panel {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+    width: 100%; max-width: 900px; display: flex; flex-direction: column;
+    max-height: calc(100vh - 80px); box-shadow: var(--shadow);
+  }
+  .docs-bar {
+    display: flex; align-items: center; gap: 12px;
+    padding: 13px 18px; border-bottom: 1px solid var(--border);
+  }
+  .docs-bar strong { margin-right: auto; font-size: 14px; }
+  .docs-body {
+    margin: 0; padding: 18px; overflow: auto; flex: 1;
+    white-space: pre-wrap; word-wrap: break-word;
+    font: 12.5px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    color: var(--text);
+  }
+</style>
+</head>
+<body>
+
+<!-- ===================== AUTH SCREENS ===================== -->
+<div id="authView" class="auth-wrap" hidden>
+  <div class="auth-card">
+    <div class="auth-brand">
+      <div class="logo" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="19" height="19">
+          <path d="M9 11l3 3L22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+        </svg>
+      </div>
+      <div>
+        <h1>Mini Issue Tracker</h1>
+        <p>Sign in to your issues</p>
+      </div>
+    </div>
+
+    <!-- sign in -->
+    <section id="pane-login">
+      <h2>Sign in</h2>
+      <p class="sub">Welcome back.</p>
+      <div class="msg error" id="loginErr"></div>
+      <form id="loginForm" novalidate>
+        <div class="field">
+          <label for="loginEmail">Email</label>
+          <input id="loginEmail" type="email" autocomplete="email" placeholder="you@example.com" required />
+        </div>
+        <div class="field">
+          <label for="loginPassword">Password</label>
+          <input id="loginPassword" type="password" autocomplete="current-password" placeholder="Your password" required />
+        </div>
+        <button class="btn primary block" type="submit" id="loginBtn">Sign in</button>
+      </form>
+      <div class="auth-foot">
+        <button class="linkbtn" type="button" id="toForgot">Forgot password?</button>
+        <button class="linkbtn" type="button" id="toRegister">Create account</button>
+      </div>
+    </section>
+
+    <!-- register -->
+    <section id="pane-register" hidden>
+      <h2>Create account</h2>
+      <p class="sub">Takes a few seconds.</p>
+      <div class="msg error" id="regErr"></div>
+      <form id="registerForm" novalidate>
+        <div class="field">
+          <label for="regEmail">Email</label>
+          <input id="regEmail" type="email" autocomplete="email" placeholder="you@example.com" required />
+        </div>
+        <div class="row">
+          <div class="field">
+            <label for="regPassword">Password</label>
+            <input id="regPassword" type="password" autocomplete="new-password" placeholder="6+ characters" required />
+          </div>
+          <div class="field">
+            <label for="regConfirm">Confirm password</label>
+            <input id="regConfirm" type="password" autocomplete="new-password" placeholder="Repeat it" required />
+          </div>
+        </div>
+        <button class="btn primary block" type="submit" id="regBtn">Create account</button>
+      </form>
+      <div class="auth-foot single">
+        <button class="linkbtn" type="button" id="toLoginFromReg">← Back to sign in</button>
+      </div>
+    </section>
+
+    <!-- forgot password -->
+    <section id="pane-forgot" hidden>
+      <h2>Reset your password</h2>
+      <p class="sub">We'll email you a link to choose a new password.</p>
+      <div class="msg error" id="forgotErr"></div>
+      <form id="forgotForm" novalidate>
+        <div class="field">
+          <label for="forgotEmail">Email</label>
+          <input id="forgotEmail" type="email" autocomplete="email" placeholder="you@example.com" required />
+        </div>
+        <button class="btn primary block" type="submit" id="forgotBtn">Send reset link</button>
+      </form>
+      <div class="auth-foot single">
+        <button class="linkbtn" type="button" id="toLoginFromForgot">← Back to sign in</button>
+      </div>
+    </section>
+
+    <!-- "check your email" confirmation -->
+    <section id="pane-sent" hidden>
+      <h2 id="sentTitle">Check your email</h2>
+      <p class="sub" id="sentBody"></p>
+      <div class="msg ok show" id="sentNote"></div>
+      <div id="sentDemoWrap" hidden>
+        <button class="btn primary block" type="button" id="sentDemoBtn">Continue: set a new password</button>
+      </div>
+      <div class="auth-foot center">
+        <button class="linkbtn" type="button" id="sentBack">← Back to sign in</button>
+      </div>
+    </section>
+  </div>
+</div>
+
+<!-- ===================== RESET PASSWORD SCREEN ===================== -->
+<div id="resetView" class="auth-wrap" hidden>
+  <div class="auth-card">
+    <div class="auth-brand">
+      <div class="logo" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="19" height="19">
+          <path d="M12 15v2m-6 4h12a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2z" /><path d="M8 11V7a4 4 0 1 1 8 0v4" />
+        </svg>
+      </div>
+      <div>
+        <h1>Set a new password</h1>
+        <p>You followed a reset link</p>
+      </div>
+    </div>
+    <div class="msg error" id="resetErr"></div>
+    <form id="resetForm" novalidate>
+      <div class="field">
+        <label for="resetPassword">New password</label>
+        <input id="resetPassword" type="password" autocomplete="new-password" placeholder="6+ characters" required />
+      </div>
+      <div class="field">
+        <label for="resetConfirm">Confirm new password</label>
+        <input id="resetConfirm" type="password" autocomplete="new-password" placeholder="Repeat it" required />
+      </div>
+      <button class="btn primary block" type="submit" id="resetBtn">Save new password</button>
+    </form>
+    <div class="auth-foot single">
+      <button class="linkbtn" type="button" id="resetCancel">← Back to sign in</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== THE APP ===================== -->
+<div id="appView" class="app" hidden>
+  <div class="banner" id="demoBanner" hidden>
+    <b>Demo mode.</b> Supabase isn't configured yet, so accounts and issues are
+    stored only in this browser. Open <b>Docs</b> (bottom right) to switch to
+    real accounts with email password resets.
+  </div>
+
+  <header class="top">
+    <div class="brand">
+      <div class="logo" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="19" height="19">
+          <path d="M9 11l3 3L22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+        </svg>
+      </div>
+      <div>
+        <h1>Mini Issue Tracker</h1>
+        <p>Track what's done and what's pending</p>
+      </div>
+    </div>
+    <span class="who" id="whoami" title=""></span>
+    <button class="btn ghost" id="signOutBtn" title="Sign out">Sign out</button>
+    <button class="btn primary" id="newBtn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14" /></svg>
+      New issue
+    </button>
+  </header>
+
+  <section class="stats" aria-label="Summary">
+    <div class="stat"><div class="n" id="statTotal">0</div><div class="l">Total</div></div>
+    <div class="stat pending"><div class="n" id="statPending">0</div><div class="l">Pending</div></div>
+    <div class="stat done"><div class="n" id="statDone">0</div><div class="l">Done</div></div>
+  </section>
+
+  <section class="toolbar">
+    <div class="tabs" role="tablist" aria-label="Filter issues">
+      <button class="tab" role="tab" data-filter="all">All <span class="count" id="cAll">0</span></button>
+      <button class="tab" role="tab" data-filter="pending">Pending <span class="count" id="cPending">0</span></button>
+      <button class="tab" role="tab" data-filter="done">Done <span class="count" id="cDone">0</span></button>
+    </div>
+    <div class="search">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3" /></svg>
+      <input type="search" id="search" placeholder="Search issues…" aria-label="Search issues" />
+    </div>
+  </section>
+
+  <main id="list" class="list"></main>
+</div>
+
+<!-- create / edit dialog -->
+<div class="backdrop" id="backdrop" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+  <div class="modal">
+    <h2 id="modalTitle">New issue</h2>
+    <form id="issueForm" novalidate>
+      <div class="field">
+        <label for="fieldTitle">Title</label>
+        <input id="fieldTitle" maxlength="140" placeholder="Short summary of the issue" autocomplete="off" />
+      </div>
+      <div class="msg error" id="formErr">Please enter a title.</div>
+      <div class="field">
+        <label for="fieldDesc">Description</label>
+        <textarea id="fieldDesc" maxlength="2000" placeholder="Optional details, steps to reproduce, notes…"></textarea>
+      </div>
+      <div class="row">
+        <div class="field">
+          <label for="fieldStatus">Status</label>
+          <select id="fieldStatus">
+            <option value="pending">Pending</option>
+            <option value="done">Done</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="fieldPriority">Priority</label>
+          <select id="fieldPriority">
+            <option value="low">Low</option>
+            <option value="medium" selected>Medium</option>
+            <option value="high">High</option>
+          </select>
+        </div>
+      </div>
+      <div class="foot">
+        <button type="button" class="btn" id="cancelBtn">Cancel</button>
+        <button type="submit" class="btn primary" id="saveBtn" data-mode="create">Create issue</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="toasts" id="toasts" aria-live="polite"></div>
+
+<!-- ===================== BUILT-IN DOCUMENTATION ===================== -->
+<button class="btn docs-fab" id="docsBtn" title="Setup, publishing and the code walkthrough">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+    <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+  </svg>
+  Docs
+</button>
+
+<div class="backdrop" id="docsView" role="dialog" aria-modal="true" aria-label="Documentation">
+  <div class="docs-panel">
+    <div class="docs-bar">
+      <strong>Setup, publishing and the complete code walkthrough</strong>
+      <button class="btn" id="docsClose">Close</button>
+    </div>
+    <pre class="docs-body" id="docsBody"></pre>
+  </div>
+</div>
+
+
+<script>
+(function () {
+  "use strict";
+
+  /* ==================================================================
+     STEP 1 — PASTE YOUR SUPABASE VALUES HERE
+     ------------------------------------------------------------------
+     Leave both empty and the app runs in "demo mode" (localStorage only).
+     Fill them in and it becomes real: proper accounts + emailed resets.
+     Full instructions: click the Docs button (bottom right of the page).
+
+     The matching database schema lives in supabase-schema.sql (or
+       supabase/migrations/).
+     Run it once in the Supabase SQL Editor before filling in the values below.
+
+     The anon key is SAFE to put in this file. It is a public key by
+     design — Supabase protects your data with Row Level Security, not
+     with secrecy of this key.
+     ================================================================== */
+  var SUPABASE_URL      = "";  // e.g. "https://abcdefghijklm.supabase.co"
+  var SUPABASE_ANON_KEY = "";  // the long "anon public" key
+
+  /* ==================================================================
+     Small helpers
+     ================================================================== */
+  function el(id) { return document.getElementById(id); }
+
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+
+  function timeAgo(ts) {
+    var s = Math.floor((Date.now() - ts) / 1000);
+    if (s < 60) return "just now";
+    var m = Math.floor(s / 60); if (m < 60) return m + "m ago";
+    var h = Math.floor(m / 60); if (h < 24) return h + "h ago";
+    var d = Math.floor(h / 24); if (d < 30) return d + "d ago";
+    return new Date(ts).toLocaleDateString();
+  }
+
+  function toast(msg) {
+    var t = document.createElement("div");
+    t.className = "toast";
+    t.textContent = msg;
+    el("toasts").appendChild(t);
+    setTimeout(function () { t.classList.add("out"); }, 2400);
+    setTimeout(function () { t.remove(); }, 2900);
+  }
+
+  function showMsg(node, text, kind) {
+    node.textContent = text || "";
+    node.className = "msg " + (kind || "error") + (text ? " show" : "");
+  }
+
+  function busy(btn, isBusy, label) {
+    if (isBusy) {
+      btn.dataset.label = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = label || "Please wait…";
+    } else {
+      btn.disabled = false;
+      if (btn.dataset.label) btn.textContent = btn.dataset.label;
+    }
+  }
+
+  /* Readable messages for the Supabase errors users actually hit. */
+  function friendly(message) {
+    var m = String(message || "");
+    if (/Invalid login credentials/i.test(m)) return "Incorrect email or password.";
+    if (/Email not confirmed/i.test(m)) return "Please confirm your email first — check your inbox.";
+    if (/User already registered/i.test(m)) return "An account with that email already exists.";
+    if (/Password should be at least/i.test(m)) return "Password must be at least 6 characters.";
+    if (/rate limit|Too many/i.test(m)) return "Too many attempts. Please wait a minute and try again.";
+    if (/valid email/i.test(m)) return "Please enter a valid email address.";
+    return m || "Something went wrong. Please try again.";
+  }
+
+  function redirectTo() {
+    // Where Supabase sends the user after they click the reset link.
+    // Strip "index.html" so this matches the Site URL you configured.
+    return (window.location.origin + window.location.pathname).replace(/index\.html$/, "");
+  }
+
+  /* ==================================================================
+     Backend adapter
+     ------------------------------------------------------------------
+     Two implementations behind one interface, so the UI below never
+     has to know whether it's talking to Supabase or to localStorage.
+     ================================================================== */
+  var cloudEnabled = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY && window.supabase);
+  var sb = cloudEnabled ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+
+  /* ---------- demo backend (localStorage) ---------- */
+  var demoBackend = (function () {
+    var USERS = "mit.demo.users";
+    var SESSION = "mit.demo.session";
+    var ISSUES = "mit.demo.issues.";
+
+    function read(key, fallback) {
+      try {
+        var raw = localStorage.getItem(key);
+        return raw ? JSON.parse(raw) : fallback;
+      } catch (e) { return fallback; }
+    }
+    function write(key, value) {
+      try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {}
+    }
+
+    function hash(text) {
+      // SHA-256 when available; plain fallback otherwise. Demo only.
+      if (window.crypto && crypto.subtle && window.TextEncoder) {
+        return crypto.subtle.digest("SHA-256", new TextEncoder().encode(text)).then(function (buf) {
+          return Array.prototype.map.call(new Uint8Array(buf), function (b) {
+            return ("0" + b.toString(16)).slice(-2);
+          }).join("");
+        });
+      }
+      var h = 5381;
+      for (var i = 0; i < text.length; i++) h = ((h << 5) + h + text.charCodeAt(i)) | 0;
+      return Promise.resolve("plain:" + (h >>> 0).toString(16));
+    }
+
+    function users() { return read(USERS, {}); }
+    function currentEmail() { return read(SESSION, null); }
+    function myIssues() { return read(ISSUES + currentEmail(), []); }
+
+    return {
+      mode: "demo",
+
+      getSession: function () {
+        var email = currentEmail();
+        return Promise.resolve(email ? { user: { email: email } } : null);
+      },
+
+      signUp: function (email, password) {
+        var all = users();
+        if (all[email]) return Promise.reject(new Error("An account with that email already exists."));
+        return hash(password).then(function (h) {
+          all[email] = h;
+          write(USERS, all);
+          write(SESSION, email);
+          return { needsConfirm: false };
+        });
+      },
+
+      signIn: function (email, password) {
+        var all = users();
+        if (!all[email]) return Promise.reject(new Error("No account found for that email. Create one instead."));
+        return hash(password).then(function (h) {
+          if (all[email] !== h) return Promise.reject(new Error("Incorrect email or password."));
+          write(SESSION, email);
+          return { user: { email: email } };
+        });
+      },
+
+      signOut: function () {
+        try { localStorage.removeItem(SESSION); } catch (e) {}
+        return Promise.resolve();
+      },
+
+      sendReset: function () {
+        // The browser cannot send email, so demo mode hands the user a
+        // shortcut to the reset screen instead.
+        return Promise.resolve({ demo: true });
+      },
+
+      updatePassword: function (email, password) {
+        // During a reset the user is signed OUT, so `currentEmail()` is empty.
+        // The email therefore has to come from the reset form.
+        var key = email || currentEmail();
+        var all = users();
+        if (!key || !all[key]) {
+          return Promise.reject(new Error("No account found for that email."));
+        }
+        return hash(password).then(function (h) {
+          all[key] = h;
+          write(USERS, all);
+        });
+      },
+
+      listIssues: function () {
+        return Promise.resolve(myIssues());
+      },
+
+      createIssue: function (issue) {
+        var list = myIssues();
+        var row = {
+          id: "i_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
+          title: issue.title,
+          description: issue.description,
+          status: issue.status,
+          priority: issue.priority,
+          createdAt: Date.now(),
+          updatedAt: Date.now()
+        };
+        list.push(row);
+        write(ISSUES + currentEmail(), list);
+        return Promise.resolve(row);
+      },
+
+      updateIssue: function (id, patch) {
+        var list = myIssues();
+        for (var i = 0; i < list.length; i++) {
+          if (list[i].id === id) {
+            for (var k in patch) if (Object.prototype.hasOwnProperty.call(patch, k)) list[i][k] = patch[k];
+            list[i].updatedAt = Date.now();
+          }
+        }
+        write(ISSUES + currentEmail(), list);
+        return Promise.resolve();
+      },
+
+      deleteIssue: function (id) {
+        write(ISSUES + currentEmail(), myIssues().filter(function (x) { return x.id !== id; }));
+        return Promise.resolve();
+      },
+
+      onAuthChange: function () { /* demo mode has no background events */ }
+    };
+  })();
+
+  /* ---------- Supabase backend ---------- */
+  var cloudBackend = {
+    mode: "supabase",
+
+    getSession: function () {
+      return sb.auth.getSession().then(function (res) {
+        return res.data ? res.data.session : null;
+      });
+    },
+
+    signUp: function (email, password) {
+      return sb.auth.signUp({ email: email, password: password }).then(function (res) {
+        if (res.error) throw res.error;
+        // When email confirmation is ON, there is no session yet.
+        return { needsConfirm: !res.data.session };
+      });
+    },
+
+    signIn: function (email, password) {
+      return sb.auth.signInWithPassword({ email: email, password: password }).then(function (res) {
+        if (res.error) throw res.error;
+        return { user: res.data.user };
+      });
+    },
+
+    signOut: function () {
+      return sb.auth.signOut().then(function (res) {
+        if (res.error) throw res.error;
+      });
+    },
+
+    sendReset: function (email) {
+      return sb.auth.resetPasswordForEmail(email, { redirectTo: redirectTo() }).then(function (res) {
+        if (res.error) throw res.error;
+        return { demo: false };
+      });
+    },
+
+    updatePassword: function (email, password) {
+      // Supabase knows which user this is from the recovery session.
+      return sb.auth.updateUser({ password: password }).then(function (res) {
+        if (res.error) throw res.error;
+      });
+    },
+
+    listIssues: function () {
+      return sb.from("issues").select("*").order("updated_at", { ascending: false }).then(function (res) {
+        if (res.error) throw res.error;
+        return (res.data || []).map(function (r) {
+          return {
+            id: r.id,
+            title: r.title,
+            description: r.description || "",
+            status: r.status,
+            priority: r.priority,
+            createdAt: new Date(r.created_at).getTime(),
+            updatedAt: new Date(r.updated_at).getTime()
+          };
+        });
+      });
+    },
+
+    createIssue: function (issue) {
+      return sb.from("issues").insert({
+        title: issue.title,
+        description: issue.description,
+        status: issue.status,
+        priority: issue.priority
+      }).select().then(function (res) {
+        if (res.error) throw res.error;
+        return res.data;
+      });
+    },
+
+    updateIssue: function (id, patch) {
+      var payload = { updated_at: new Date().toISOString() };
+      for (var k in patch) if (Object.prototype.hasOwnProperty.call(patch, k)) payload[k] = patch[k];
+      return sb.from("issues").update(payload).eq("id", id).then(function (res) {
+        if (res.error) throw res.error;
+      });
+    },
+
+    deleteIssue: function (id) {
+      return sb.from("issues").delete().eq("id", id).then(function (res) {
+        if (res.error) throw res.error;
+      });
+    },
+
+    onAuthChange: function (handler) {
+      sb.auth.onAuthStateChange(handler);
+    }
+  };
+
+  var api = cloudEnabled ? cloudBackend : demoBackend;
+
+  /* ==================================================================
+     App state
+     ================================================================== */
+  var issues = [];
+  var filter = "all";
+  var query = "";
+  var editingId = null;
+  var inRecovery = false;   // true while the user is setting a new password
+  var userEmail = "";
+  var resetEmail = "";      // which account a password reset applies to
+
+  /* ==================================================================
+     Screen switching
+     ================================================================== */
+  function hideAll() {
+    el("authView").hidden = true;
+    el("resetView").hidden = true;
+    el("appView").hidden = true;
+  }
+
+  function showPane(name) {
+    ["pane-login", "pane-register", "pane-forgot", "pane-sent"].forEach(function (id) {
+      el(id).hidden = id !== "pane-" + name;
+    });
+  }
+
+  function showAuth(pane) {
+    hideAll();
+    el("authView").hidden = false;
+    showPane(pane || "login");
+    el("loginPassword").value = "";
+    showMsg(el("loginErr"), "");   // don't leave a stale error on screen
+  }
+
+  function showReset() {
+    inRecovery = true;
+    hideAll();
+    el("resetView").hidden = false;
+    el("resetPassword").value = "";
+    el("resetConfirm").value = "";
+    el("resetPassword").focus();
+  }
+
+  function showApp() {
+    if (inRecovery) return;
+    hideAll();
+    el("appView").hidden = false;
+    el("whoami").textContent = userEmail;
+    el("whoami").title = userEmail;
+    el("demoBanner").hidden = api.mode !== "demo";
+
+    // Clear any rows left over from a previous user BEFORE the new ones
+    // load, so nobody ever sees someone else's issues for a moment.
+    issues = [];
+    filter = "all";
+    query = "";
+    el("search").value = "";
+    render();
+
+    refresh();
+  }
+
+  /* ==================================================================
+     Tracker: rendering
+     ================================================================== */
+  var listEl = el("list");
+  var tabs = Array.prototype.slice.call(document.querySelectorAll(".tab"));
+
+  function visibleIssues() {
+    var q = query.trim().toLowerCase();
+    return issues
+      .filter(function (it) { return filter === "all" ? true : it.status === filter; })
+      .filter(function (it) {
+        if (!q) return true;
+        return (it.title + " " + (it.description || "")).toLowerCase().indexOf(q) !== -1;
+      })
+      .sort(function (a, b) {
+        if (a.status !== b.status) return a.status === "pending" ? -1 : 1;
+        return b.updatedAt - a.updatedAt;
+      });
+  }
+
+  function updateStats() {
+    var total = issues.length;
+    var done = issues.filter(function (i) { return i.status === "done"; }).length;
+    var pending = total - done;
+
+    el("statTotal").textContent = total;
+    el("statDone").textContent = done;
+    el("statPending").textContent = pending;
+    el("cAll").textContent = total;
+    el("cPending").textContent = pending;
+    el("cDone").textContent = done;
+
+    tabs.forEach(function (t) {
+      t.setAttribute("aria-selected", String(t.dataset.filter === filter));
+    });
+  }
+
+  function render() {
+    updateStats();
+    var items = visibleIssues();
+    listEl.innerHTML = items.length ? items.map(card).join("") : emptyState(issues.length);
+  }
+
+  function card(it) {
+    var isDone = it.status === "done";
+    return '<article class="issue' + (isDone ? " is-done" : "") + '" data-id="' + esc(it.id) + '">' +
+      '<button class="check" data-action="toggle" aria-pressed="' + isDone + '" ' +
+        'aria-label="Mark as ' + (isDone ? "pending" : "done") + '" title="Toggle done">' +
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" ' +
+        'stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg>' +
+      '</button>' +
+      '<div class="body">' +
+        '<div class="title">' + esc(it.title) + '</div>' +
+        (it.description ? '<div class="desc">' + esc(it.description) + '</div>' : "") +
+        '<div class="meta">' +
+          '<span class="pill ' + esc(it.status) + '">' + esc(it.status) + '</span>' +
+          '<span class="pill ' + esc(it.priority) + '">' + esc(it.priority) + '</span>' +
+          '<span class="when">' + timeAgo(it.updatedAt || it.createdAt) + '</span>' +
+        '</div>' +
+      '</div>' +
+      '<div class="actions">' +
+        '<button class="btn ghost icon" data-action="edit" title="Edit issue" aria-label="Edit issue">' +
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" ' +
+          'stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/>' +
+          '<path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>' +
+        '</button>' +
+        '<button class="btn ghost icon danger" data-action="delete" title="Delete issue" aria-label="Delete issue">' +
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" ' +
+          'stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6"/></svg>' +
+        '</button>' +
+      '</div>' +
+    '</article>';
+  }
+
+  function emptyState(total) {
+    var msg = total === 0
+      ? "No issues yet. Create your first one to get started."
+      : "No issues match this view.";
+    var btn = total === 0
+      ? '<button class="btn primary" data-action="new">Create issue</button>'
+      : '<button class="btn" data-action="clear-filters">Clear filters</button>';
+    return '<div class="empty">' +
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">' +
+      '<rect x="3" y="4" width="18" height="17" rx="2"/><path d="M8 2v4M16 2v4M3 10h18M9 15l2 2 4-4"/></svg>' +
+      '<p>' + esc(msg) + '</p>' + btn + '</div>';
+  }
+
+  /* Load the current user's issues and redraw. */
+  function refresh() {
+    return api.listIssues().then(function (rows) {
+      issues = rows || [];
+      render();
+    }).catch(function (e) {
+      toast("Could not load issues: " + friendly(e.message));
+    });
+  }
+
+  function byId(id) {
+    for (var i = 0; i < issues.length; i++) if (issues[i].id === id) return issues[i];
+    return null;
+  }
+
+  /* Mutate on the server, then reload so the UI matches the database. */
+  function mutate(promise, okMsg) {
+    return promise.then(function () {
+      return refresh();
+    }).then(function () {
+      if (okMsg) toast(okMsg);
+    }).catch(function (e) {
+      toast("Error: " + friendly(e.message));
+      return refresh();
+    });
+  }
+
+  /* ==================================================================
+     List interactions
+     ================================================================== */
+  listEl.addEventListener("click", function (e) {
+    var actionEl = e.target.closest("[data-action]");
+    if (!actionEl) return;
+    var action = actionEl.dataset.action;
+
+    if (action === "new") { openModal(null); return; }
+    if (action === "clear-filters") {
+      filter = "all";
+      query = "";
+      el("search").value = "";
+      render();
+      return;
+    }
+
+    var row = e.target.closest(".issue");
+    if (!row) return;
+    var it = byId(row.dataset.id);
+    if (!it) return;
+
+    if (action === "toggle") {
+      var next = it.status === "done" ? "pending" : "done";
+      mutate(api.updateIssue(it.id, { status: next }),
+             next === "done" ? "Marked as done" : "Moved back to pending");
+    } else if (action === "edit") {
+      openModal(it);
+    } else if (action === "delete") {
+      if (confirm('Delete "' + it.title + '"?\nThis cannot be undone.')) {
+        mutate(api.deleteIssue(it.id), "Issue deleted");
+      }
+    }
+  });
+
+  tabs.forEach(function (t) {
+    t.addEventListener("click", function () {
+      filter = t.dataset.filter;
+      render();
+    });
+  });
+  el("search").addEventListener("input", function (e) {
+    query = e.target.value;
+    render();
+  });
+
+  /* ==================================================================
+     Create / edit dialog
+     ================================================================== */
+  var backdrop = el("backdrop");
+  var fTitle = el("fieldTitle");
+  var fDesc = el("fieldDesc");
+  var fStatus = el("fieldStatus");
+  var fPriority = el("fieldPriority");
+  var formErr = el("formErr");
+
+  function openModal(issue) {
+    editingId = issue ? issue.id : null;
+    el("modalTitle").textContent = issue ? "Edit issue" : "New issue";
+    el("saveBtn").textContent = issue ? "Save changes" : "Create issue";
+    fTitle.value = issue ? issue.title : "";
+    fDesc.value = issue ? (issue.description || "") : "";
+    fStatus.value = issue ? issue.status : "pending";
+    fPriority.value = issue ? issue.priority : "medium";
+    showMsg(formErr, "");
+    backdrop.classList.add("open");
+    document.body.style.overflow = "hidden";
+    setTimeout(function () { fTitle.focus(); }, 30);
+  }
+
+  function closeModal() {
+    backdrop.classList.remove("open");
+    document.body.style.overflow = "";
+    editingId = null;
+  }
+
+  el("newBtn").addEventListener("click", function () { openModal(null); });
+  el("cancelBtn").addEventListener("click", closeModal);
+  backdrop.addEventListener("mousedown", function (e) {
+    if (e.target === backdrop) closeModal();
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && backdrop.classList.contains("open")) closeModal();
+  });
+
+  el("issueForm").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var title = fTitle.value.trim();
+    if (!title) {
+      showMsg(formErr, "Please enter a title.", "error");
+      fTitle.focus();
+      return;
+    }
+    showMsg(formErr, "");
+
+    var data = {
+      title: title,
+      description: fDesc.value.trim(),
+      status: fStatus.value,
+      priority: fPriority.value
+    };
+
+    var btn = el("saveBtn");
+    busy(btn, true, "Saving…");
+    var work = editingId
+      ? api.updateIssue(editingId, data)
+      : api.createIssue(data);
+
+    mutate(work, editingId ? "Changes saved" : "Issue created")
+      .then(function () { busy(btn, false); closeModal(); });
+  });
+
+  /* ==================================================================
+     Auth: sign in / register / forgot / reset
+     ================================================================== */
+  el("toRegister").addEventListener("click", function () {
+    showMsg(el("regErr"), "");
+    showPane("register");
+  });
+  el("toForgot").addEventListener("click", function () {
+    showMsg(el("forgotErr"), "");
+    showPane("forgot");
+  });
+  el("toLoginFromReg").addEventListener("click", function () { showAuth("login"); });
+  el("toLoginFromForgot").addEventListener("click", function () { showAuth("login"); });
+  el("sentBack").addEventListener("click", function () { showAuth("login"); });
+
+  el("loginForm").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var email = el("loginEmail").value.trim();
+    var password = el("loginPassword").value;
+    var err = el("loginErr");
+    showMsg(err, "");
+
+    if (!email || !password) { showMsg(err, "Enter your email and password."); return; }
+
+    var btn = el("loginBtn");
+    busy(btn, true, "Signing in…");
+    api.signIn(email, password).then(function () {
+      busy(btn, false);
+      userEmail = email;
+      showApp();
+      toast("Signed in");
+    }).catch(function (ex) {
+      busy(btn, false);
+      showMsg(err, friendly(ex.message));
+    });
+  });
+
+  el("registerForm").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var email = el("regEmail").value.trim();
+    var password = el("regPassword").value;
+    var confirmPw = el("regConfirm").value;
+    var err = el("regErr");
+    showMsg(err, "");
+
+    if (!email) { showMsg(err, "Enter your email."); return; }
+    if (password.length < 6) { showMsg(err, "Password must be at least 6 characters."); return; }
+    if (password !== confirmPw) { showMsg(err, "The two passwords do not match."); return; }
+
+    var btn = el("regBtn");
+    busy(btn, true, "Creating…");
+    api.signUp(email, password).then(function (res) {
+      busy(btn, false);
+      el("loginEmail").value = email;
+      if (res.needsConfirm) {
+        el("sentTitle").textContent = "Confirm your email";
+        el("sentBody").textContent = "We sent a confirmation link to " + email +
+          ". Click it, then come back and sign in.";
+        showMsg(el("sentNote"), "Didn't get it? Check your spam folder.", "info");
+        el("sentDemoWrap").hidden = true;
+        showPane("sent");
+      } else {
+        userEmail = email;
+        showApp();
+        toast("Account created");
+      }
+    }).catch(function (ex) {
+      busy(btn, false);
+      showMsg(err, friendly(ex.message));
+    });
+  });
+
+  el("forgotForm").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var email = el("forgotEmail").value.trim();
+    var err = el("forgotErr");
+    showMsg(err, "");
+
+    if (!email) { showMsg(err, "Enter your email."); return; }
+
+    var btn = el("forgotBtn");
+    busy(btn, true, "Sending…");
+    api.sendReset(email).then(function (res) {
+      busy(btn, false);
+      if (res && res.demo) {
+        el("sentTitle").textContent = "Demo mode can't send email";
+        el("sentBody").textContent =
+          "Sending a reset link needs a mail server, which a plain web page doesn't have. " +
+          "Configure Supabase (see the Docs button) and this becomes a real email. " +
+          "For now you can go straight to the reset screen.";
+        showMsg(el("sentNote"), "");
+        el("sentDemoWrap").hidden = false;
+      } else {
+        el("sentTitle").textContent = "Check your email";
+        el("sentBody").textContent = "If an account exists for " + email +
+          ", we've sent a link to reset your password. The link expires shortly, so use it soon.";
+        showMsg(el("sentNote"), "Nothing arrived? Check spam, or try again in a minute.", "info");
+        el("sentDemoWrap").hidden = true;
+      }
+      showPane("sent");
+    }).catch(function (ex) {
+      busy(btn, false);
+      showMsg(err, friendly(ex.message));
+    });
+  });
+
+  el("sentDemoBtn").addEventListener("click", function () {
+    resetEmail = el("forgotEmail").value.trim() || userEmail;
+    showReset();
+  });
+
+  el("resetForm").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var password = el("resetPassword").value;
+    var confirmPw = el("resetConfirm").value;
+    var err = el("resetErr");
+    showMsg(err, "");
+
+    if (password.length < 6) { showMsg(err, "Password must be at least 6 characters."); return; }
+    if (password !== confirmPw) { showMsg(err, "The two passwords do not match."); return; }
+
+    var btn = el("resetBtn");
+    busy(btn, true, "Saving…");
+    api.updatePassword(resetEmail, password).then(function () {
+      busy(btn, false);
+      inRecovery = false;
+      el("loginEmail").value = resetEmail || el("loginEmail").value;
+      toast("Password updated");
+      showAuth("login");
+    }).catch(function (ex) {
+      busy(btn, false);
+      showMsg(err, friendly(ex.message));
+    });
+  });
+
+  el("resetCancel").addEventListener("click", function () {
+    inRecovery = false;
+    showAuth("login");
+  });
+
+  el("signOutBtn").addEventListener("click", function () {
+    var btn = el("signOutBtn");
+    busy(btn, true, "Signing out…");
+    api.signOut().then(function () {
+      busy(btn, false);
+      issues = [];
+      query = "";
+      filter = "all";
+      el("search").value = "";
+      userEmail = "";
+      render();
+      showAuth("login");
+      toast("Signed out");
+    }).catch(function (ex) {
+      busy(btn, false);
+      toast("Error: " + friendly(ex.message));
+    });
+  });
+
+
+  /* ==================================================================
+     Built-in documentation
+     ------------------------------------------------------------------
+     The entire guide (setup, publishing, code walkthrough) lives in the
+     DOCS string below and is shown in a scrollable panel, so this single
+     file is both the app and its own manual.
+     ================================================================== */
+  var DOCS = "================================================================================\n  MINI ISSUE TRACKER  -  SETUP, PUBLISHING AND THE COMPLETE CODE WALKTHROUGH\n================================================================================\n\nThis one file contains both the application and its documentation.\n\n  * The application is the code in this file -- it is a working web app.\n  * You are reading its manual, in three sections:\n\n      Section 1  SETUP        Real accounts and emailed password resets\n      Section 2  PUBLISHING   Put it on the internet, for free\n      Section 3  WALKTHROUGH  Every line of the app, part by part\n\nQUICK START\n-----------\n1. It already works. Open this file in a browser and you are in \"demo mode\":\n   accounts and issues are stored in this browser only, and password reset\n   emails cannot be sent (a plain web page has no mail server).\n2. For real accounts with emailed password resets, do Section 1: create a free\n   Supabase project and paste two values into the config block in the script\n   element near the bottom of this file.\n3. To publish it for free, do Section 2.\n\nAbout Section 3: it reproduces the app exactly, part by part. The only piece it\ndoes not cover is the small \"Docs\" viewer you used to open this panel -- that is\na CSS block plus about forty lines at the end of the script.\n\n================================================================================\n  SECTION 1 - SETUP\n================================================================================\n\n# Supabase Setup \u2014 real accounts + emailed password resets\n\nFollow this once. It takes about 10 minutes and the free tier is more than\nenough for a personal tracker.\n\nWhen you finish, `index.html` will have **real** sign-up, sign-in, and a\n**working \"forgot password\" email** \u2014 and each user gets their own private issue\nlist stored in the cloud, syncing across every device they sign in from.\n\n> **Until you do this**, the app still runs \u2014 it just falls back to **demo mode**\n> (accounts and issues saved in that one browser only, and no reset emails).\n\n---\n\n## Step 1 \u2014 Create a Supabase project\n\n1. Sign up at \u003Chttps://supabase.com> (free, GitHub or email login).\n2. Click **New project**.\n3. Fill in:\n   - **Name:** `mini-issue-tracker`\n   - **Database Password:** click *Generate a password* and save it somewhere.\n     (You won't need it for this app, but don't lose it.)\n   - **Region:** pick the one closest to you.\n4. Click **Create new project** and wait ~2 minutes while it provisions.\n\n---\n\n## Step 2 \u2014 Copy your two values\n\n1. In the left sidebar, go to **Project Settings** (gear) \u2192 **API Keys**.\n\n   *Older dashboards call this **Settings \u2192 API**.*\n\n2. Copy these two things:\n\n   | What | Looks like | Where |\n   | --- | --- | --- |\n   | **Project URL** | `https://abcdefghijklm.supabase.co` | near the top |\n   | **Public key** | a long string starting `eyJ\u2026` (labelled *anon* / *public*) | in the key list |\n\n   Newer projects show a key named **publishable** (`sb_publishable_\u2026`) instead.\n   That works too \u2014 either the **anon public** or the **publishable** key is fine.\n\n> **\u26a0\ufe0f Never use the key labelled `service_role` or `secret`.** That one bypasses\n> all security. Only ever paste the *public*/*anon* key into a web page.\n\n3. Open `index.html` and find the config block at the top of the `\u003Cscript>` tag:\n\n   ```js\n   var SUPABASE_URL      = \"\";  // e.g. \"https://abcdefghijklm.supabase.co\"\n   var SUPABASE_ANON_KEY = \"\";  // the long \"anon public\" key\n   ```\n\n4. Paste your values between the quotes and save the file.\n\n**Is it safe to have that key in a public file?** Yes. It's a *public* key by\ndesign \u2014 it only identifies your project. Your data is protected by Row Level\nSecurity (Step 5), which is what actually stops one user reading another's\nissues. The key being visible changes nothing.\n\n---\n\n## Step 3 \u2014 Add your URLs (this is what makes the reset link work)\n\nThe email link sends the user **back to your site**, so Supabase needs to know\nyour site's address in advance.\n\n1. Go to **Authentication** \u2192 **URL Configuration**.\n2. **Site URL:** your published address, e.g.\n   `https://YOUR-USERNAME.github.io/mini-issue-tracker/`\n3. **Redirect URLs:** click **Add URL** and add the same address again. Also add\n   a second entry for local testing:\n   `http://localhost:8000/`\n4. Click **Save**.\n\n> If you skip this, the reset email arrives but the link lands on an error page.\n\n---\n\n## Step 4 \u2014 Check the email provider is on\n\n1. Go to **Authentication** \u2192 **Providers** (or **Sign In / Providers**).\n2. **Email** should already be **enabled**. Leave it on.\n3. Note the **Confirm email** toggle nearby:\n   - **ON** (default): new users must click a link in a confirmation email before\n     they can sign in. Most realistic.\n   - **OFF**: users are signed in immediately after registering. Handy while\n     testing.\n\n**About the built-in email sender.** By default Supabase sends those\nconfirmation and reset emails through its own testing service. It is heavily\nrate-limited \u2014 only a few messages per hour, and to a limited set of recipients.\nThat's fine for trying it out, but if you don't receive a reset email, this is\nalmost always why. For real use, connect your own SMTP provider (Resend,\nSendGrid, Brevo, \u2026) under **Authentication \u2192 Emails \u2192 SMTP Settings**.\n\n---\n\n## Step 5 \u2014 Create the issues table\n\n1. Go to the **SQL Editor** in the sidebar.\n2. Paste this whole block and click **Run**:\n\n   ```sql\n   -- The table that holds every issue.\n   create table if not exists public.issues (\n     id          uuid primary key default gen_random_uuid(),\n     user_id     uuid not null default auth.uid() references auth.users(id) on delete cascade,\n     title       text not null,\n     description text not null default '',\n     status      text not null default 'pending' check (status in ('pending', 'done')),\n     priority    text not null default 'medium' check (priority in ('low', 'medium', 'high')),\n     created_at  timestamptz not null default now(),\n     updated_at  timestamptz not null default now()\n   );\n\n   -- Turn on Row Level Security: without this, anyone could read every row.\n   alter table public.issues enable row level security;\n\n   -- Each user may only see and change their own rows.\n   drop policy if exists \"Users manage their own issues\" on public.issues;\n   create policy \"Users manage their own issues\"\n     on public.issues\n     for all\n     using (auth.uid() = user_id)\n     with check (auth.uid() = user_id);\n\n   -- Speeds up the per-user, newest-first query the app runs.\n   create index if not exists issues_user_updated_idx\n     on public.issues (user_id, updated_at desc);\n   ```\n\n3. You should see **Success. No rows returned**. Check the **Table Editor** and\n   the `issues` table is there.\n\n**Why this matters:** the `user_id` column plus that one policy is the entire\nsecurity model. It means \"you can only touch rows where `user_id` is your own\nuser id\" \u2014 enforced by the database, not by our JavaScript. Someone editing the\npage in DevTools still can't read another user's issues.\n\n---\n\n## Step 6 \u2014 Publish and test\n\n1. Upload the updated `index.html` to GitHub (see `PUBLISHING.md`), or test\n   locally first:\n\n   ```powershell\n   cd \"C:\\Users\\HP\\OneDrive\\Documents\\Default Project\"\n   python -m http.server 8000\n   ```\n\n   Then open \u003Chttp://localhost:8000/>. (Use a server, not a double-click \u2014 the\n   reset link needs a real `http://` address.)\n\n2. Click **Create account**, register with a real email address you can open.\n3. Check your inbox, click the confirmation link, then sign in.\n4. Add a couple of issues, refresh \u2014 they're still there.\n5. Sign out, click **Forgot password?**, enter your email, and click the link\n   that arrives. You should land on **Set a new password**.\n\n**The demo banner is gone?** That confirms it's running against Supabase.\n\n---\n\n## Troubleshooting\n\n| Symptom | Cause / fix |\n| --- | --- |\n| Yellow \"Demo mode\" banner still shows | The two values are empty, or the page was loaded offline so the Supabase library didn't download. Re-check Step 2 and hard-refresh with `Ctrl` + `F5`. |\n| `Invalid API key` | The key has a stray space or newline. Re-copy it and paste again. |\n| Reset email never arrives | The built-in sender is rate-limited (Step 4). Wait an hour, check spam, or set up your own SMTP. Also confirm the email is one you registered. |\n| Reset link opens an error page | Your site's URL isn't in **Redirect URLs** (Step 3). Add it exactly, including the trailing `/`. |\n| \"Please confirm your email first\" | `Confirm email` is ON and you haven't clicked the confirmation link yet. |\n| Sign-in works but the list is empty and stays empty | The `issues` table or its policy is missing \u2014 re-run the SQL in Step 5. |\n| `new row violates row-level security policy` | Same as above; the policy wasn't created. |\n| Everything broke after re-running the SQL | Harmless: `create policy` fails if a policy with that name exists. The `drop policy if exists` line prevents it. |\n\n---\n\n## What's protected, honestly\n\n- \u2705 Passwords are hashed and stored **by Supabase** \u2014 the browser never keeps them.\n- \u2705 Issues are isolated per user by **database-level** Row Level Security.\n- \u2705 Emailed reset links are single-use, time-limited, and verified server-side.\n- \u26a0\ufe0f The **public key** in `index.html` is visible to anyone. That's intended and safe.\n- \u26a0\ufe0f In **demo mode**, none of the above is true \u2014 passwords and data live in\n  `localStorage` and anyone with DevTools can read them. That's why demo mode is\n  only for trying the app out.\n\n## Quick reference\n\n| Task | Location |\n| --- | --- |\n| Create a project | \u003Chttps://supabase.com/dashboard> |\n| Your two keys | Project Settings \u2192 **API Keys** |\n| Allowed redirect URLs | Authentication \u2192 **URL Configuration** |\n| Email on/off, SMTP | Authentication \u2192 **Providers** / **Emails** |\n| Create the table | **SQL Editor** (Step 5) |\n| See stored issues | **Table Editor** \u2192 `issues` |\n\n\n================================================================================\n  SECTION 2 - PUBLISHING\n================================================================================\n\n# Upload to GitHub and Publish (free hosting)\n\nTwo things are going on here:\n\n1. **Upload** = put your code on GitHub (a remote copy of the project).\n2. **Publish** = turn on **GitHub Pages**, which serves your `index.html` at a\n   public URL anyone can visit.\n\nYour project is *perfect* for this: it's one static HTML file with no server, no\ndatabase, and no build step. GitHub Pages will host it for free forever.\n\nThere are two routes. **Route A needs no software installed at all.**\n\n---\n\n## Route A \u2014 No installation (easiest, do this first)\n\n### Step 1. Create a GitHub account\n\nSkip if you already have one: \u003Chttps://github.com/signup>\n\n### Step 2. Create a new repository\n\n1. Go to \u003Chttps://github.com/new>\n2. **Repository name:** `mini-issue-tracker` (letters, numbers, and dashes only)\n3. **Description:** optional, e.g. `A tiny issue tracker in one HTML file`\n4. **Public** \u2014 leave this selected. (Free GitHub Pages requires a public repo;\n   private repos need a paid plan.)\n5. **Do NOT** tick \"Add a README file\", \"Add .gitignore\", or \"Choose a license\".\n   Leaving the repo empty avoids merge conflicts later.\n6. Click **Create repository**.\n\nYou'll land on a page that says *\"Quick setup \u2014 if you've done this kind of thing\nbefore\"* with setup commands. Ignore those for now.\n\n### Step 3. Upload your files\n\n1. On that page, click the **uploading an existing file** link (or **Add file \u2192\n   Upload files**).\n2. Open your project folder in File Explorer:\n   `C:\\Users\\HP\\OneDrive\\Documents\\Default Project`\n3. Drag **`index.html`** into the browser's upload area \u2014 it is the only file.\n4. In **Commit changes**, type a message like `Add mini issue tracker` and click\n   **Commit changes**.\n\nYour files are now on GitHub. Click `index.html` in the file list and you can\nread the code in the browser \u2014 but that's just the *source*, not the running app.\n\n### Step 4. Turn on GitHub Pages (this is the \"publish\" part)\n\n1. In your repo, click **Settings** (top bar, looks like a gear).\n2. In the left sidebar, click **Pages**.\n3. Under **Build and deployment \u2192 Source**, choose **Deploy from a branch**.\n4. Under **Branch**, select **`main`** and keep the folder as **`/ (root)`**.\n5. Click **Save**.\n\nBecause your file is named exactly `index.html` and sits in the root folder,\nGitHub will serve it automatically \u2014 no configuration needed.\n\n### Step 5. Get your live URL\n\n- Wait **1\u20133 minutes** the first time. Refresh the Pages settings screen; when\n  it's ready it shows a green banner with your link.\n- Your app lives at:\n\n  ```\n  https://YOUR-USERNAME.github.io/mini-issue-tracker/\n  ```\n\n- You can also watch progress under the **Actions** tab. A yellow dot = building,\n  a green tick = live. (The first run sometimes fails with *\"Pages is disabled\"*\n  if you visit too early \u2014 re-running it succeeds.)\n\n**Done.** Share that URL and anyone can use your issue tracker.\n\n### Step 6. Updating the site later\n\nAny change to `index.html` on the `main` branch republishes the site\nautomatically, usually within a minute:\n\n1. In your repo click **index.html** \u2192 the **pencil** icon to edit, or\n   **Add file \u2192 Upload files** to replace it.\n2. Commit the change.\n3. Wait ~1 minute, then hard-refresh the live URL (`Ctrl` + `F5`).\n\n---\n\n## Route B \u2014 Terminal (better once you're changing code often)\n\nInstall **Git for Windows** from \u003Chttps://git-scm.com/download/win> first. This\nalso installs **Git Credential Manager**, so the first push opens a browser\nwindow to sign in \u2014 you never have to type a password.\n\n> If you'd rather avoid the terminal entirely, **GitHub Desktop**\n> (\u003Chttps://desktop.github.com>) does the same job with buttons, and GitHub\n> already knows how to use it. The steps map 1:1 to the commands below.\n\n### Step 1. Tell Git who you are (once per machine)\n\nOpen PowerShell and run, with your own details:\n\n```powershell\ngit config --global user.name \"Your Name\"\ngit config --global user.email \"you@example.com\"\n```\n\nUse the **same email** as your GitHub account.\n\n### Step 2. Turn the folder into a Git repository\n\n```powershell\ncd \"C:\\Users\\HP\\OneDrive\\Documents\\Default Project\"\ngit init -b main\ngit add .\ngit commit -m \"Add mini issue tracker\"\n```\n\n`git add .` stages everything; `git commit` saves a snapshot. You can check what\nwill be committed first with:\n\n```powershell\ngit status\n```\n\n### Step 3. Create the empty repo on GitHub\n\nDo **Step 2 from Route A** above (\u003Chttps://github.com/new>, name\n`mini-issue-tracker`, Public, no README). Copy the URL it shows you, e.g.\n`https://github.com/YOUR-USERNAME/mini-issue-tracker.git`.\n\n### Step 4. Connect your folder to it and push\n\n```powershell\ngit remote add origin https://github.com/YOUR-USERNAME/mini-issue-tracker.git\ngit push -u origin main\n```\n\nA browser window will pop up asking you to authorise Git \u2014 sign in and approve.\nRefresh your repo page and the files are there.\n\nThat's it. Then do **Steps 4\u20135 from Route A** to publish with Pages.\n\n### Step 5. Pushing your future changes\n\nAfter editing files, the whole cycle is three commands:\n\n```powershell\ngit add .\ngit commit -m \"Describe what you changed\"\ngit push\n```\n\n`git push` with no extra arguments works because of the `-u` you used the first\ntime.\n\n---\n\n## A few important things to know\n\n**Your data is per-visitor, not shared.** The tracker saves issues in each\nbrowser's `localStorage`. So when you open your live URL you'll see *your* issues,\nand a friend opening the same URL sees *their own, empty* list. Nothing is sent\nto a server. That's fine for a personal tracker, but if you want a shared\nissue list where everyone sees the same issues, you'd need a backend \u2014 for\nexample Firebase, Supabase, or a small API.\n\n**Don't commit secrets.** This app has none, but as a habit: never put API keys,\npasswords, or tokens in a repo, especially a public one. Once pushed, treat the\nvalue as public even if you delete it later.\n\n**Your folder is inside OneDrive.** That usually works, but OneDrive syncing can\noccasionally lock the hidden `.git` folder and cause odd errors. If you hit\nstrange Git failures, move the project somewhere local like `C:\\Projects\\` and\nwork there instead.\n\n**Page not updating?** Browsers cache hard. Use `Ctrl` + `F5`, or open the URL in\na private window. Also give Pages a minute after each commit.\n\n**Prefer a custom domain?** In Settings \u2192 Pages \u2192 **Custom domain**, enter a\ndomain you own and add the DNS records GitHub shows you. Not needed to get\nstarted.\n\n---\n\n## Quick reference\n\n| Task | Where |\n| --- | --- |\n| Create a repo | \u003Chttps://github.com/new> |\n| Install Git (Windows) | \u003Chttps://git-scm.com/download/win> |\n| GitHub Desktop (no terminal) | \u003Chttps://desktop.github.com> |\n| Publish settings | Repo \u2192 **Settings \u2192 Pages** |\n| Build status | Repo \u2192 **Actions** tab |\n| Live URL | `https://YOUR-USERNAME.github.io/REPO-NAME/` |\n\n**The three commands you'll use forever:**\n\n```powershell\ngit add .\ngit commit -m \"What I changed\"\ngit push\n```\n\n\n================================================================================\n  SECTION 3 - THE COMPLETE CODE WALKTHROUGH\n================================================================================\n\n# The Complete Code \u2014 Login Page to Dashboard\n\nEvery line of the app, in order, part by part. Nothing is omitted: the code\nblocks below concatenate into the finished `index.html` exactly.\n\n**How to read this.** The parts follow the same order as the file, so you can\nbuild top to bottom and refresh as you go. The screens appear in the order a\nuser meets them \u2014 **login \u2192 register \u2192 forgot password \u2192 reset \u2192 dashboard** \u2014\nthen the JavaScript logic is explained the same way.\n\n**Two things before you start:**\n\n1. The app runs immediately with no setup, in **demo mode** (accounts and issues\n   in that one browser, no emails). For real accounts and emailed password\n   resets, follow **Section 1 \u2014 Setup** above and paste your two values in\n   Part 15.\n2. Serve the folder over `http://`, not by double-clicking, or the emailed reset\n   link won't work:\n\n   `python -m http.server 8000` \u2192 open `http://localhost:8000/`\n\n---\n\n## Part 1 \u2014 Page setup, the Supabase client, and base styling\nEverything lives in this one file. The head starts by pulling the Supabase\nlibrary from a CDN \u2014 that is what gives us real accounts and emails later, with\nno install and no build step. If the network is down this simply fails and the\napp falls back to demo mode.\n\nThen come the **design tokens**: every colour is declared once as a CSS variable\non `:root`, and the dark-mode block below just redefines those same variables.\nThat one trick is why the whole app can support dark mode in fifteen lines.\n\nThe final block is the base reset plus typography.\n```html\n\u003C!DOCTYPE html>\n\u003Chtml lang=\"en\">\n\u003Chead>\n\u003Cmeta charset=\"UTF-8\" />\n\u003Cmeta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />\n\u003Ctitle>Mini Issue Tracker\u003C/title>\n\n\u003C!-- Supabase client (loaded from a CDN; no install, no build step).\n     If you are offline this fails silently and the app runs in demo mode. -->\n\u003Cscript src=\"https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2\">\u003C/script>\n\n\u003Cstyle>\n  :root {\n    --bg: #f5f6f8;\n    --surface: #ffffff;\n    --surface-2: #f0f1f4;\n    --border: #e2e4e9;\n    --text: #1b1d22;\n    --muted: #6b7280;\n    --accent: #4f46e5;\n    --accent-soft: #eef0ff;\n    --done: #15803d;\n    --done-soft: #e8f6ed;\n    --pending: #b45309;\n    --pending-soft: #fdf3e3;\n    --high: #dc2626;\n    --medium: #d97706;\n    --low: #0891b2;\n    --danger: #dc2626;\n    --shadow: 0 1px 2px rgba(16, 20, 30, .06), 0 8px 24px rgba(16, 20, 30, .08);\n    --radius: 12px;\n  }\n  @media (prefers-color-scheme: dark) {\n    :root {\n      --bg: #0f1117;\n      --surface: #171a22;\n      --surface-2: #1e222c;\n      --border: #2a2f3b;\n      --text: #e7e9ee;\n      --muted: #9aa2b1;\n      --accent: #8b8cf7;\n      --accent-soft: #232544;\n      --done: #4ade80;\n      --done-soft: #14301f;\n      --pending: #fbbf24;\n      --pending-soft: #33260f;\n      --high: #f87171;\n      --medium: #fbbf24;\n      --low: #22d3ee;\n      --danger: #f87171;\n      --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 12px 32px rgba(0, 0, 0, .35);\n    }\n  }\n\n  * { box-sizing: border-box; }\n  html, body { height: 100%; }\n  body {\n    margin: 0;\n    background: var(--bg);\n    color: var(--text);\n    font: 15px/1.5 ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", Roboto, Helvetica, Arial, sans-serif;\n  }\n  button, input, select, textarea { font: inherit; color: inherit; }\n  button { cursor: pointer; }\n  [hidden] { display: none !important; }\n\n```\n\n---\n\n## Part 2 \u2014 Buttons\nOne `.btn` class covers every button in the app; modifiers (`.primary`,\n`.ghost`, `.danger`, `.icon`, `.block`) adjust it. `:disabled` matters here \u2014\nthe auth forms disable their button while a request is in flight.\n```css\n  /* ============ buttons ============ */\n  .btn {\n    display: inline-flex; align-items: center; gap: 7px;\n    border: 1px solid var(--border); background: var(--surface);\n    padding: 8px 13px; border-radius: 9px; font-size: 14px; font-weight: 550;\n    transition: background .15s, border-color .15s, transform .05s;\n  }\n  .btn:hover { background: var(--surface-2); }\n  .btn:active { transform: translateY(1px); }\n  .btn:disabled { opacity: .6; cursor: default; }\n  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }\n  .btn.primary:hover:not(:disabled) { filter: brightness(1.07); }\n  .btn.ghost { border-color: transparent; background: transparent; padding: 7px 9px; }\n  .btn.ghost:hover { background: var(--surface-2); }\n  .btn.danger { color: var(--danger); }\n  .btn.icon { padding: 7px; line-height: 0; }\n  .btn svg { width: 16px; height: 16px; }\n  .btn.block { width: 100%; justify-content: center; }\n\n```\n\n---\n\n## Part 3 \u2014 Login, register and reset screen styling\nThe auth screens are a centred card: `.auth-wrap` centres, `.auth-card` is the\npanel. `.linkbtn` styles the text-style links (\"Forgot password?\") so they look\nlike links but behave like buttons \u2014 which is better for accessibility than an\n`\u003Ca href=\"#\">`.\n```css\n  /* ============ auth screens ============ */\n  .auth-wrap { min-height: 100vh; display: grid; place-items: center; padding: 24px 18px; }\n  .auth-card {\n    width: 100%; max-width: 400px; background: var(--surface);\n    border: 1px solid var(--border); border-radius: 16px; padding: 26px;\n    box-shadow: var(--shadow);\n  }\n  .auth-brand { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; }\n  .auth-brand h1 { font-size: 17px; margin: 0; letter-spacing: -.2px; }\n  .auth-brand p { margin: 0; font-size: 12px; color: var(--muted); }\n  .auth-card h2 { font-size: 16px; margin: 0 0 6px; }\n  .auth-card .sub { color: var(--muted); font-size: 13.5px; margin: 0 0 18px; }\n  .auth-foot { margin-top: 16px; font-size: 13.5px; display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }\n  .auth-foot.single { justify-content: flex-start; }\n  .auth-foot.center { justify-content: center; }\n  .linkbtn {\n    background: none; border: 0; padding: 0; color: var(--accent);\n    font-size: 13.5px; font-weight: 550;\n  }\n  .linkbtn:hover { text-decoration: underline; }\n  .note { font-size: 12.5px; color: var(--muted); margin-top: 14px; }\n  .note code { background: var(--surface-2); padding: 1px 5px; border-radius: 5px; }\n\n```\n\n---\n\n## Part 4 \u2014 Form fields, messages and the demo banner\n`.msg` is the shared error/success line used by every form. It is hidden until\nJavaScript adds `.show`, and the `error` / `ok` / `info` classes set the colour.\n\n`.banner` is the yellow \"Demo mode\" strip shown on the dashboard when Supabase\nisn't configured yet.\n```css\n  /* ============ fields ============ */\n  .field { margin-bottom: 14px; }\n  .field label { display: block; font-size: 12.5px; font-weight: 600; color: var(--muted); margin-bottom: 5px; }\n  .field input, .field textarea, .field select {\n    width: 100%; background: var(--surface-2); border: 1px solid var(--border);\n    border-radius: 9px; padding: 9px 11px;\n  }\n  .field input:focus, .field textarea:focus, .field select:focus {\n    outline: 2px solid var(--accent); outline-offset: -1px; border-color: transparent;\n  }\n  .field textarea { resize: vertical; min-height: 76px; }\n  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }\n\n  .msg { font-size: 13px; margin: 0 0 12px; display: none; }\n  .msg.show { display: block; }\n  .msg.error { color: var(--danger); }\n  .msg.ok { color: var(--done); }\n  .msg.info { color: var(--muted); }\n\n  .banner {\n    background: var(--pending-soft); color: var(--pending);\n    border: 1px solid var(--pending); border-radius: 10px;\n    padding: 9px 13px; font-size: 12.5px; margin-bottom: 14px;\n  }\n  .banner b { font-weight: 700; }\n\n```\n\n---\n\n## Part 5 \u2014 Dashboard layout\nThe dashboard is the same page after sign-in. `.who` is the small chip showing\nthe signed-in email, deliberately truncated with an ellipsis so a long address\ncan't break the header.\n```css\n  /* ============ app shell ============ */\n  .app { max-width: 880px; margin: 0 auto; padding: 28px 20px 80px; }\n  header.top { display: flex; align-items: center; gap: 12px; margin-bottom: 22px; flex-wrap: wrap; }\n  .brand { display: flex; align-items: center; gap: 10px; margin-right: auto; }\n  .logo {\n    width: 34px; height: 34px; border-radius: 10px; flex: none;\n    background: var(--accent); color: #fff; display: grid; place-items: center;\n  }\n  .brand h1 { font-size: 18px; margin: 0; letter-spacing: -.2px; }\n  .brand p { margin: 0; font-size: 12px; color: var(--muted); }\n  .who {\n    font-size: 13px; color: var(--muted); max-width: 180px;\n    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;\n  }\n\n```\n\n---\n\n## Part 6 \u2014 Summary cards and the filter/search toolbar\nThe three summary tiles and the All / Pending / Done tabs. The active tab is\ndriven by `aria-selected`, which the JavaScript sets \u2014 styling from state\ninstead of a separate `.active` class keeps them in sync.\n```css\n  /* ============ stats / toolbar ============ */\n  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; }\n  .stat {\n    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);\n    padding: 13px 16px;\n  }\n  .stat .n { font-size: 24px; font-weight: 700; line-height: 1.2; }\n  .stat .l { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }\n  .stat.done .n { color: var(--done); }\n  .stat.pending .n { color: var(--pending); }\n\n  .toolbar { display: flex; gap: 10px; align-items: center; margin-bottom: 16px; flex-wrap: wrap; }\n  .tabs { display: flex; gap: 3px; background: var(--surface-2); padding: 3px; border-radius: 10px; }\n  .tab {\n    border: 0; background: transparent; color: var(--muted);\n    padding: 7px 13px; border-radius: 8px; font-size: 13.5px; font-weight: 550;\n  }\n  .tab .count { opacity: .7; font-variant-numeric: tabular-nums; margin-left: 2px; }\n  .tab[aria-selected=\"true\"] { background: var(--surface); color: var(--text); box-shadow: 0 1px 2px rgba(0,0,0,.08); }\n  .search { position: relative; flex: 1; min-width: 180px; }\n  .search svg { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; color: var(--muted); }\n  .search input {\n    width: 100%; background: var(--surface); border: 1px solid var(--border);\n    border-radius: 9px; padding: 8px 12px 8px 33px;\n  }\n  .search input:focus { outline: 2px solid var(--accent); outline-offset: -1px; border-color: transparent; }\n\n```\n\n---\n\n## Part 7 \u2014 Issue cards\nThe card, the round done-checkbox, the status/priority chips and the empty\nstate. The checkbox shows its tick by toggling `aria-pressed`, so the visual\nstate and the accessible state can never disagree.\n```css\n  /* ============ list ============ */\n  .list { display: flex; flex-direction: column; gap: 9px; }\n  .issue {\n    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);\n    padding: 13px 15px; display: flex; gap: 13px; box-shadow: var(--shadow);\n  }\n  .issue.is-done { background: color-mix(in srgb, var(--surface) 88%, var(--done-soft)); }\n  .check {\n    flex: none; width: 21px; height: 21px; margin-top: 1px; border-radius: 6px;\n    border: 1.5px solid var(--border); background: transparent;\n    display: grid; place-items: center; transition: background .15s, border-color .15s;\n  }\n  .check svg { width: 14px; height: 14px; color: #fff; opacity: 0; }\n  .check:hover { border-color: var(--done); }\n  .check[aria-pressed=\"true\"] { background: var(--done); border-color: var(--done); }\n  .check[aria-pressed=\"true\"] svg { opacity: 1; }\n  .body { flex: 1; min-width: 0; }\n  .title { font-weight: 600; word-break: break-word; }\n  .is-done .title { text-decoration: line-through; color: var(--muted); }\n  .desc { color: var(--muted); font-size: 13.5px; margin-top: 3px; white-space: pre-wrap; word-break: break-word; }\n  .meta { display: flex; align-items: center; gap: 8px; margin-top: 8px; flex-wrap: wrap; }\n  .pill {\n    font-size: 11.5px; font-weight: 600; padding: 2px 8px; border-radius: 999px;\n    border: 1px solid transparent; text-transform: capitalize;\n  }\n  .pill.pending { background: var(--pending-soft); color: var(--pending); }\n  .pill.done { background: var(--done-soft); color: var(--done); }\n  .pill.high { color: var(--high); border-color: var(--high); }\n  .pill.medium { color: var(--medium); border-color: var(--medium); }\n  .pill.low { color: var(--low); border-color: var(--low); }\n  .when { font-size: 12px; color: var(--muted); }\n  .actions { display: flex; gap: 2px; flex: none; align-self: flex-start; }\n\n  .empty {\n    text-align: center; padding: 56px 20px; color: var(--muted);\n    border: 1px dashed var(--border); border-radius: var(--radius);\n  }\n  .empty svg { width: 36px; height: 36px; opacity: .45; margin-bottom: 8px; }\n  .empty p { margin: 0 0 14px; }\n\n```\n\n---\n\n## Part 8 \u2014 Dialog, toasts, small screens, and closing the head\nThe create/edit dialog (`.backdrop` is only `display:flex` once JavaScript adds\n`.open`), the toast notifications, and the phone-width tweaks.\n\nThis part ends by closing `\u003C/style>`, closing `\u003C/head>` and opening `\u003Cbody>`.\n```css\n  /* ============ modal ============ */\n  .backdrop {\n    position: fixed; inset: 0; background: rgba(10, 12, 18, .5);\n    display: none; align-items: flex-start; justify-content: center;\n    padding: 40px 16px; z-index: 50; overflow-y: auto; backdrop-filter: blur(2px);\n  }\n  .backdrop.open { display: flex; animation: fade .15s ease; }\n  @keyframes fade { from { opacity: 0; } }\n  .modal {\n    background: var(--surface); border: 1px solid var(--border); border-radius: 16px;\n    width: 100%; max-width: 520px; padding: 22px; box-shadow: var(--shadow);\n    animation: pop .16s ease;\n  }\n  @keyframes pop { from { transform: translateY(-8px) scale(.98); opacity: 0; } }\n  .modal h2 { margin: 0 0 16px; font-size: 17px; }\n  .modal .foot { display: flex; justify-content: flex-end; gap: 9px; margin-top: 20px; }\n\n  /* ============ toasts ============ */\n  .toasts { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 60; display: flex; flex-direction: column; gap: 8px; }\n  .toast {\n    background: var(--text); color: var(--bg); padding: 9px 16px; border-radius: 999px;\n    font-size: 13.5px; font-weight: 550; box-shadow: var(--shadow);\n    animation: pop .18s ease; max-width: 92vw;\n  }\n  .toast.out { opacity: 0; transition: opacity .3s; }\n\n  @media (max-width: 560px) {\n    .stats { gap: 8px; }\n    .stat { padding: 10px 11px; }\n    .stat .n { font-size: 20px; }\n    .row { grid-template-columns: 1fr; }\n    .brand p { display: none; }\n  }\n\u003C/style>\n\u003C/head>\n\u003Cbody>\n\n```\n\n---\n\n## Part 9 \u2014 The auth shell and the login page\nHere the visible screens begin. `.auth-wrap` is the whole sign-in world, and\ninside it four `\u003Csection>` elements are the \"panes\". Only one is shown at a\ntime; the rest carry the `hidden` attribute, which the CSS forces to\n`display:none` (that's what the `[hidden]` rule near the top is for).\n\nThis part contains the shell, the brand header, and the **login form**.\n```html\n\u003C!-- ===================== AUTH SCREENS ===================== -->\n\u003Cdiv id=\"authView\" class=\"auth-wrap\" hidden>\n  \u003Cdiv class=\"auth-card\">\n    \u003Cdiv class=\"auth-brand\">\n      \u003Cdiv class=\"logo\" aria-hidden=\"true\">\n        \u003Csvg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" width=\"19\" height=\"19\">\n          \u003Cpath d=\"M9 11l3 3L22 4\" />\u003Cpath d=\"M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11\" />\n        \u003C/svg>\n      \u003C/div>\n      \u003Cdiv>\n        \u003Ch1>Mini Issue Tracker\u003C/h1>\n        \u003Cp>Sign in to your issues\u003C/p>\n      \u003C/div>\n    \u003C/div>\n\n    \u003C!-- sign in -->\n    \u003Csection id=\"pane-login\">\n      \u003Ch2>Sign in\u003C/h2>\n      \u003Cp class=\"sub\">Welcome back.\u003C/p>\n      \u003Cdiv class=\"msg error\" id=\"loginErr\">\u003C/div>\n      \u003Cform id=\"loginForm\" novalidate>\n        \u003Cdiv class=\"field\">\n          \u003Clabel for=\"loginEmail\">Email\u003C/label>\n          \u003Cinput id=\"loginEmail\" type=\"email\" autocomplete=\"email\" placeholder=\"you@example.com\" required />\n        \u003C/div>\n        \u003Cdiv class=\"field\">\n          \u003Clabel for=\"loginPassword\">Password\u003C/label>\n          \u003Cinput id=\"loginPassword\" type=\"password\" autocomplete=\"current-password\" placeholder=\"Your password\" required />\n        \u003C/div>\n        \u003Cbutton class=\"btn primary block\" type=\"submit\" id=\"loginBtn\">Sign in\u003C/button>\n      \u003C/form>\n      \u003Cdiv class=\"auth-foot\">\n        \u003Cbutton class=\"linkbtn\" type=\"button\" id=\"toForgot\">Forgot password?\u003C/button>\n        \u003Cbutton class=\"linkbtn\" type=\"button\" id=\"toRegister\">Create account\u003C/button>\n      \u003C/div>\n    \u003C/section>\n\n    ```\n\n---\n\n## Part 10 \u2014 The register page\nThe second pane. It reuses the same `.field` markup, and puts password and\nconfirm side by side with the `.row` grid \u2014 which collapses to one column on\nphones.\n```html\n\u003C!-- register -->\n    \u003Csection id=\"pane-register\" hidden>\n      \u003Ch2>Create account\u003C/h2>\n      \u003Cp class=\"sub\">Takes a few seconds.\u003C/p>\n      \u003Cdiv class=\"msg error\" id=\"regErr\">\u003C/div>\n      \u003Cform id=\"registerForm\" novalidate>\n        \u003Cdiv class=\"field\">\n          \u003Clabel for=\"regEmail\">Email\u003C/label>\n          \u003Cinput id=\"regEmail\" type=\"email\" autocomplete=\"email\" placeholder=\"you@example.com\" required />\n        \u003C/div>\n        \u003Cdiv class=\"row\">\n          \u003Cdiv class=\"field\">\n            \u003Clabel for=\"regPassword\">Password\u003C/label>\n            \u003Cinput id=\"regPassword\" type=\"password\" autocomplete=\"new-password\" placeholder=\"6+ characters\" required />\n          \u003C/div>\n          \u003Cdiv class=\"field\">\n            \u003Clabel for=\"regConfirm\">Confirm password\u003C/label>\n            \u003Cinput id=\"regConfirm\" type=\"password\" autocomplete=\"new-password\" placeholder=\"Repeat it\" required />\n          \u003C/div>\n        \u003C/div>\n        \u003Cbutton class=\"btn primary block\" type=\"submit\" id=\"regBtn\">Create account\u003C/button>\n      \u003C/form>\n      \u003Cdiv class=\"auth-foot single\">\n        \u003Cbutton class=\"linkbtn\" type=\"button\" id=\"toLoginFromReg\">\u2190 Back to sign in\u003C/button>\n      \u003C/div>\n    \u003C/section>\n\n    ```\n\n---\n\n## Part 11 \u2014 The forgot-password page\nDeliberately just one field. Asking for the email and nothing else is what makes\nthe \"we've sent you a link\" flow work.\n```html\n\u003C!-- forgot password -->\n    \u003Csection id=\"pane-forgot\" hidden>\n      \u003Ch2>Reset your password\u003C/h2>\n      \u003Cp class=\"sub\">We'll email you a link to choose a new password.\u003C/p>\n      \u003Cdiv class=\"msg error\" id=\"forgotErr\">\u003C/div>\n      \u003Cform id=\"forgotForm\" novalidate>\n        \u003Cdiv class=\"field\">\n          \u003Clabel for=\"forgotEmail\">Email\u003C/label>\n          \u003Cinput id=\"forgotEmail\" type=\"email\" autocomplete=\"email\" placeholder=\"you@example.com\" required />\n        \u003C/div>\n        \u003Cbutton class=\"btn primary block\" type=\"submit\" id=\"forgotBtn\">Send reset link\u003C/button>\n      \u003C/form>\n      \u003Cdiv class=\"auth-foot single\">\n        \u003Cbutton class=\"linkbtn\" type=\"button\" id=\"toLoginFromForgot\">\u2190 Back to sign in\u003C/button>\n      \u003C/div>\n    \u003C/section>\n\n    ```\n\n---\n\n## Part 12 \u2014 The \u201ccheck your email\u201d confirmation pane\nA fourth pane, shown after registering or requesting a reset. It is reused for\nboth, so its title and text are filled in by JavaScript.\n\n`#sentDemoWrap` holds a button that only appears in demo mode, because a plain\nweb page cannot send email.\n```html\n\u003C!-- \"check your email\" confirmation -->\n    \u003Csection id=\"pane-sent\" hidden>\n      \u003Ch2 id=\"sentTitle\">Check your email\u003C/h2>\n      \u003Cp class=\"sub\" id=\"sentBody\">\u003C/p>\n      \u003Cdiv class=\"msg ok show\" id=\"sentNote\">\u003C/div>\n      \u003Cdiv id=\"sentDemoWrap\" hidden>\n        \u003Cbutton class=\"btn primary block\" type=\"button\" id=\"sentDemoBtn\">Continue: set a new password\u003C/button>\n      \u003C/div>\n      \u003Cdiv class=\"auth-foot center\">\n        \u003Cbutton class=\"linkbtn\" type=\"button\" id=\"sentBack\">\u2190 Back to sign in\u003C/button>\n      \u003C/div>\n    \u003C/section>\n  \u003C/div>\n\u003C/div>\n\n```\n\n---\n\n## Part 13 \u2014 \u201cSet a new password\u201d (the emailed link)\nA separate top-level view rather than a pane, because of how you arrive at it:\nby clicking a link in an email. Supabase puts a recovery token in the URL,\nraises a `PASSWORD_RECOVERY` event, and our boot code shows this screen instead\nof the dashboard.\n```html\n\u003C!-- ===================== RESET PASSWORD SCREEN ===================== -->\n\u003Cdiv id=\"resetView\" class=\"auth-wrap\" hidden>\n  \u003Cdiv class=\"auth-card\">\n    \u003Cdiv class=\"auth-brand\">\n      \u003Cdiv class=\"logo\" aria-hidden=\"true\">\n        \u003Csvg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" width=\"19\" height=\"19\">\n          \u003Cpath d=\"M12 15v2m-6 4h12a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2z\" />\u003Cpath d=\"M8 11V7a4 4 0 1 1 8 0v4\" />\n        \u003C/svg>\n      \u003C/div>\n      \u003Cdiv>\n        \u003Ch1>Set a new password\u003C/h1>\n        \u003Cp>You followed a reset link\u003C/p>\n      \u003C/div>\n    \u003C/div>\n    \u003Cdiv class=\"msg error\" id=\"resetErr\">\u003C/div>\n    \u003Cform id=\"resetForm\" novalidate>\n      \u003Cdiv class=\"field\">\n        \u003Clabel for=\"resetPassword\">New password\u003C/label>\n        \u003Cinput id=\"resetPassword\" type=\"password\" autocomplete=\"new-password\" placeholder=\"6+ characters\" required />\n      \u003C/div>\n      \u003Cdiv class=\"field\">\n        \u003Clabel for=\"resetConfirm\">Confirm new password\u003C/label>\n        \u003Cinput id=\"resetConfirm\" type=\"password\" autocomplete=\"new-password\" placeholder=\"Repeat it\" required />\n      \u003C/div>\n      \u003Cbutton class=\"btn primary block\" type=\"submit\" id=\"resetBtn\">Save new password\u003C/button>\n    \u003C/form>\n    \u003Cdiv class=\"auth-foot single\">\n      \u003Cbutton class=\"linkbtn\" type=\"button\" id=\"resetCancel\">\u2190 Back to sign in\u003C/button>\n    \u003C/div>\n  \u003C/div>\n\u003C/div>\n\n```\n\n---\n\n## Part 14 \u2014 The dashboard\nThe dashboard is the app you already had, now gated behind sign-in: the demo\nbanner, the header with the signed-in email and **Sign out**, the three summary\ntiles, the filter tabs with their live counts, the search box, and the empty\n`\u003Cmain id=\"list\">` that JavaScript fills in.\n```html\n\u003C!-- ===================== THE APP ===================== -->\n\u003Cdiv id=\"appView\" class=\"app\" hidden>\n  \u003Cdiv class=\"banner\" id=\"demoBanner\" hidden>\n    \u003Cb>Demo mode.\u003C/b> Supabase isn't configured yet, so accounts and issues are\n    stored only in this browser. Open \u003Cb>Docs\u003C/b> (bottom right) to switch to\n    real accounts with email password resets.\n  \u003C/div>\n\n  \u003Cheader class=\"top\">\n    \u003Cdiv class=\"brand\">\n      \u003Cdiv class=\"logo\" aria-hidden=\"true\">\n        \u003Csvg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" width=\"19\" height=\"19\">\n          \u003Cpath d=\"M9 11l3 3L22 4\" />\u003Cpath d=\"M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11\" />\n        \u003C/svg>\n      \u003C/div>\n      \u003Cdiv>\n        \u003Ch1>Mini Issue Tracker\u003C/h1>\n        \u003Cp>Track what's done and what's pending\u003C/p>\n      \u003C/div>\n    \u003C/div>\n    \u003Cspan class=\"who\" id=\"whoami\" title=\"\">\u003C/span>\n    \u003Cbutton class=\"btn ghost\" id=\"signOutBtn\" title=\"Sign out\">Sign out\u003C/button>\n    \u003Cbutton class=\"btn primary\" id=\"newBtn\">\n      \u003Csvg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.2\" stroke-linecap=\"round\">\u003Cpath d=\"M12 5v14M5 12h14\" />\u003C/svg>\n      New issue\n    \u003C/button>\n  \u003C/header>\n\n  \u003Csection class=\"stats\" aria-label=\"Summary\">\n    \u003Cdiv class=\"stat\">\u003Cdiv class=\"n\" id=\"statTotal\">0\u003C/div>\u003Cdiv class=\"l\">Total\u003C/div>\u003C/div>\n    \u003Cdiv class=\"stat pending\">\u003Cdiv class=\"n\" id=\"statPending\">0\u003C/div>\u003Cdiv class=\"l\">Pending\u003C/div>\u003C/div>\n    \u003Cdiv class=\"stat done\">\u003Cdiv class=\"n\" id=\"statDone\">0\u003C/div>\u003Cdiv class=\"l\">Done\u003C/div>\u003C/div>\n  \u003C/section>\n\n  \u003Csection class=\"toolbar\">\n    \u003Cdiv class=\"tabs\" role=\"tablist\" aria-label=\"Filter issues\">\n      \u003Cbutton class=\"tab\" role=\"tab\" data-filter=\"all\">All \u003Cspan class=\"count\" id=\"cAll\">0\u003C/span>\u003C/button>\n      \u003Cbutton class=\"tab\" role=\"tab\" data-filter=\"pending\">Pending \u003Cspan class=\"count\" id=\"cPending\">0\u003C/span>\u003C/button>\n      \u003Cbutton class=\"tab\" role=\"tab\" data-filter=\"done\">Done \u003Cspan class=\"count\" id=\"cDone\">0\u003C/span>\u003C/button>\n    \u003C/div>\n    \u003Cdiv class=\"search\">\n      \u003Csvg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\">\u003Ccircle cx=\"11\" cy=\"11\" r=\"7\" />\u003Cpath d=\"M21 21l-4.3-4.3\" />\u003C/svg>\n      \u003Cinput type=\"search\" id=\"search\" placeholder=\"Search issues\u2026\" aria-label=\"Search issues\" />\n    \u003C/div>\n  \u003C/section>\n\n  \u003Cmain id=\"list\" class=\"list\">\u003C/main>\n\u003C/div>\n\n```\n\n---\n\n## Part 15 \u2014 The create/edit dialog, toasts, and the config block\nOne dialog serves both creating and editing \u2014 the only difference is a value\nJavaScript tracks (`editingId`). Then the toast container, and finally the\n`\u003Cscript>` tag opens with the **only two lines you must edit**:\n\n```text\nvar SUPABASE_URL      = \"\";\nvar SUPABASE_ANON_KEY = \"\";\n```\n\nLeave them empty and the app runs in demo mode. Fill them in (see **Section 1 \u2014\nSetup** above) and you get real accounts with emailed password resets.\n```html\n\u003C!-- create / edit dialog -->\n\u003Cdiv class=\"backdrop\" id=\"backdrop\" role=\"dialog\" aria-modal=\"true\" aria-labelledby=\"modalTitle\">\n  \u003Cdiv class=\"modal\">\n    \u003Ch2 id=\"modalTitle\">New issue\u003C/h2>\n    \u003Cform id=\"issueForm\" novalidate>\n      \u003Cdiv class=\"field\">\n        \u003Clabel for=\"fieldTitle\">Title\u003C/label>\n        \u003Cinput id=\"fieldTitle\" maxlength=\"140\" placeholder=\"Short summary of the issue\" autocomplete=\"off\" />\n      \u003C/div>\n      \u003Cdiv class=\"msg error\" id=\"formErr\">Please enter a title.\u003C/div>\n      \u003Cdiv class=\"field\">\n        \u003Clabel for=\"fieldDesc\">Description\u003C/label>\n        \u003Ctextarea id=\"fieldDesc\" maxlength=\"2000\" placeholder=\"Optional details, steps to reproduce, notes\u2026\">\u003C/textarea>\n      \u003C/div>\n      \u003Cdiv class=\"row\">\n        \u003Cdiv class=\"field\">\n          \u003Clabel for=\"fieldStatus\">Status\u003C/label>\n          \u003Cselect id=\"fieldStatus\">\n            \u003Coption value=\"pending\">Pending\u003C/option>\n            \u003Coption value=\"done\">Done\u003C/option>\n          \u003C/select>\n        \u003C/div>\n        \u003Cdiv class=\"field\">\n          \u003Clabel for=\"fieldPriority\">Priority\u003C/label>\n          \u003Cselect id=\"fieldPriority\">\n            \u003Coption value=\"low\">Low\u003C/option>\n            \u003Coption value=\"medium\" selected>Medium\u003C/option>\n            \u003Coption value=\"high\">High\u003C/option>\n          \u003C/select>\n        \u003C/div>\n      \u003C/div>\n      \u003Cdiv class=\"foot\">\n        \u003Cbutton type=\"button\" class=\"btn\" id=\"cancelBtn\">Cancel\u003C/button>\n        \u003Cbutton type=\"submit\" class=\"btn primary\" id=\"saveBtn\" data-mode=\"create\">Create issue\u003C/button>\n      \u003C/div>\n    \u003C/form>\n  \u003C/div>\n\u003C/div>\n\n\u003Cdiv class=\"toasts\" id=\"toasts\" aria-live=\"polite\">\u003C/div>\n\n\u003Cscript>\n(function () {\n  \"use strict\";\n\n  /* ==================================================================\n     STEP 1 \u2014 PASTE YOUR SUPABASE VALUES HERE\n     ------------------------------------------------------------------\n     Leave both empty and the app runs in \"demo mode\" (localStorage only).\n     Fill them in and it becomes real: proper accounts + emailed resets.\n     Full instructions: click the Docs button (bottom right of the page).\n\n     The anon key is SAFE to put in this file. It is a public key by\n     design \u2014 Supabase protects your data with Row Level Security, not\n     with secrecy of this key.\n     ================================================================== */\n  var SUPABASE_URL      = \"\";  // e.g. \"https://abcdefghijklm.supabase.co\"\n  var SUPABASE_ANON_KEY = \"\";  // the long \"anon public\" key\n\n  /* ==================================================================\n```\n\n---\n\n## Part 16 \u2014 Small helpers\nThe utility belt used everywhere below:\n\n- `el(id)` \u2014 shorthand for `getElementById`.\n- `esc(text)` \u2014 escapes `& \u003C > \" '`. Every piece of user text goes through this\n  before it touches `innerHTML`, which is what makes the app safe from injected\n  markup.\n- `timeAgo(ts)` \u2014 turns a timestamp into `\"3h ago\"`.\n- `toast(msg)` \u2014 the little fading confirmation.\n- `showMsg(node, text, kind)` \u2014 show or clear an inline form message.\n- `busy(btn, isBusy, label)` \u2014 disable a button and swap its label while a\n  request runs.\n- `friendly(message)` \u2014 turns raw library errors into plain English.\n- `redirectTo()` \u2014 where the emailed reset link should return the user.\n```js\n     Small helpers\n     ================================================================== */\n  function el(id) { return document.getElementById(id); }\n\n  function esc(s) {\n    return String(s).replace(/[&\u003C>\"']/g, function (c) {\n      return { \"&\": \"&amp;\", \"\u003C\": \"&lt;\", \">\": \"&gt;\", '\"': \"&quot;\", \"'\": \"&#39;\" }[c];\n    });\n  }\n\n  function timeAgo(ts) {\n    var s = Math.floor((Date.now() - ts) / 1000);\n    if (s \u003C 60) return \"just now\";\n    var m = Math.floor(s / 60); if (m \u003C 60) return m + \"m ago\";\n    var h = Math.floor(m / 60); if (h \u003C 24) return h + \"h ago\";\n    var d = Math.floor(h / 24); if (d \u003C 30) return d + \"d ago\";\n    return new Date(ts).toLocaleDateString();\n  }\n\n  function toast(msg) {\n    var t = document.createElement(\"div\");\n    t.className = \"toast\";\n    t.textContent = msg;\n    el(\"toasts\").appendChild(t);\n    setTimeout(function () { t.classList.add(\"out\"); }, 2400);\n    setTimeout(function () { t.remove(); }, 2900);\n  }\n\n  function showMsg(node, text, kind) {\n    node.textContent = text || \"\";\n    node.className = \"msg \" + (kind || \"error\") + (text ? \" show\" : \"\");\n  }\n\n  function busy(btn, isBusy, label) {\n    if (isBusy) {\n      btn.dataset.label = btn.textContent;\n      btn.disabled = true;\n      btn.textContent = label || \"Please wait\u2026\";\n    } else {\n      btn.disabled = false;\n      if (btn.dataset.label) btn.textContent = btn.dataset.label;\n    }\n  }\n\n  /* Readable messages for the Supabase errors users actually hit. */\n  function friendly(message) {\n    var m = String(message || \"\");\n    if (/Invalid login credentials/i.test(m)) return \"Incorrect email or password.\";\n    if (/Email not confirmed/i.test(m)) return \"Please confirm your email first \u2014 check your inbox.\";\n    if (/User already registered/i.test(m)) return \"An account with that email already exists.\";\n    if (/Password should be at least/i.test(m)) return \"Password must be at least 6 characters.\";\n    if (/rate limit|Too many/i.test(m)) return \"Too many attempts. Please wait a minute and try again.\";\n    if (/valid email/i.test(m)) return \"Please enter a valid email address.\";\n    return m || \"Something went wrong. Please try again.\";\n  }\n\n  function redirectTo() {\n    // Where Supabase sends the user after they click the reset link.\n    // Strip \"index.html\" so this matches the Site URL you configured.\n    return (window.location.origin + window.location.pathname).replace(/index\\.html$/, \"\");\n  }\n\n  /* ==================================================================\n```\n\n---\n\n## Part 17 \u2014 The backend: two implementations, one interface\nThis is the most important idea in the auth code. There are **two** backends:\n\n- `demoBackend` \u2014 stores accounts and issues in `localStorage`, hashes passwords\n  with SHA-256 via the Web Crypto API, and cannot send email.\n- `cloudBackend` \u2014 talks to Supabase for everything.\n\nBoth expose *exactly* the same methods (`signUp`, `signIn`, `signOut`,\n`sendReset`, `updatePassword`, `listIssues`, `createIssue`, `updateIssue`,\n`deleteIssue`, `onAuthChange`), and `api` points at whichever one is active. The\nscreens above never know the difference \u2014 which is also why I could test the\nentire interface without a Supabase project.\n\nNote the comment in `demoBackend.updatePassword`: during a password reset you are\nsigned *out*, so the account can't be found from the session \u2014 the email has to\nbe passed in explicitly.\n```js\n     Backend adapter\n     ------------------------------------------------------------------\n     Two implementations behind one interface, so the UI below never\n     has to know whether it's talking to Supabase or to localStorage.\n     ================================================================== */\n  var cloudEnabled = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY && window.supabase);\n  var sb = cloudEnabled ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;\n\n  /* ---------- demo backend (localStorage) ---------- */\n  var demoBackend = (function () {\n    var USERS = \"mit.demo.users\";\n    var SESSION = \"mit.demo.session\";\n    var ISSUES = \"mit.demo.issues.\";\n\n    function read(key, fallback) {\n      try {\n        var raw = localStorage.getItem(key);\n        return raw ? JSON.parse(raw) : fallback;\n      } catch (e) { return fallback; }\n    }\n    function write(key, value) {\n      try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {}\n    }\n\n    function hash(text) {\n      // SHA-256 when available; plain fallback otherwise. Demo only.\n      if (window.crypto && crypto.subtle && window.TextEncoder) {\n        return crypto.subtle.digest(\"SHA-256\", new TextEncoder().encode(text)).then(function (buf) {\n          return Array.prototype.map.call(new Uint8Array(buf), function (b) {\n            return (\"0\" + b.toString(16)).slice(-2);\n          }).join(\"\");\n        });\n      }\n      var h = 5381;\n      for (var i = 0; i \u003C text.length; i++) h = ((h \u003C\u003C 5) + h + text.charCodeAt(i)) | 0;\n      return Promise.resolve(\"plain:\" + (h >>> 0).toString(16));\n    }\n\n    function users() { return read(USERS, {}); }\n    function currentEmail() { return read(SESSION, null); }\n    function myIssues() { return read(ISSUES + currentEmail(), []); }\n\n    return {\n      mode: \"demo\",\n\n      getSession: function () {\n        var email = currentEmail();\n        return Promise.resolve(email ? { user: { email: email } } : null);\n      },\n\n      signUp: function (email, password) {\n        var all = users();\n        if (all[email]) return Promise.reject(new Error(\"An account with that email already exists.\"));\n        return hash(password).then(function (h) {\n          all[email] = h;\n          write(USERS, all);\n          write(SESSION, email);\n          return { needsConfirm: false };\n        });\n      },\n\n      signIn: function (email, password) {\n        var all = users();\n        if (!all[email]) return Promise.reject(new Error(\"No account found for that email. Create one instead.\"));\n        return hash(password).then(function (h) {\n          if (all[email] !== h) return Promise.reject(new Error(\"Incorrect email or password.\"));\n          write(SESSION, email);\n          return { user: { email: email } };\n        });\n      },\n\n      signOut: function () {\n        try { localStorage.removeItem(SESSION); } catch (e) {}\n        return Promise.resolve();\n      },\n\n      sendReset: function () {\n        // The browser cannot send email, so demo mode hands the user a\n        // shortcut to the reset screen instead.\n        return Promise.resolve({ demo: true });\n      },\n\n      updatePassword: function (email, password) {\n        // During a reset the user is signed OUT, so `currentEmail()` is empty.\n        // The email therefore has to come from the reset form.\n        var key = email || currentEmail();\n        var all = users();\n        if (!key || !all[key]) {\n          return Promise.reject(new Error(\"No account found for that email.\"));\n        }\n        return hash(password).then(function (h) {\n          all[key] = h;\n          write(USERS, all);\n        });\n      },\n\n      listIssues: function () {\n        return Promise.resolve(myIssues());\n      },\n\n      createIssue: function (issue) {\n        var list = myIssues();\n        var row = {\n          id: \"i_\" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7),\n          title: issue.title,\n          description: issue.description,\n          status: issue.status,\n          priority: issue.priority,\n          createdAt: Date.now(),\n          updatedAt: Date.now()\n        };\n        list.push(row);\n        write(ISSUES + currentEmail(), list);\n        return Promise.resolve(row);\n      },\n\n      updateIssue: function (id, patch) {\n        var list = myIssues();\n        for (var i = 0; i \u003C list.length; i++) {\n          if (list[i].id === id) {\n            for (var k in patch) if (Object.prototype.hasOwnProperty.call(patch, k)) list[i][k] = patch[k];\n            list[i].updatedAt = Date.now();\n          }\n        }\n        write(ISSUES + currentEmail(), list);\n        return Promise.resolve();\n      },\n\n      deleteIssue: function (id) {\n        write(ISSUES + currentEmail(), myIssues().filter(function (x) { return x.id !== id; }));\n        return Promise.resolve();\n      },\n\n      onAuthChange: function () { /* demo mode has no background events */ }\n    };\n  })();\n\n  /* ---------- Supabase backend ---------- */\n  var cloudBackend = {\n    mode: \"supabase\",\n\n    getSession: function () {\n      return sb.auth.getSession().then(function (res) {\n        return res.data ? res.data.session : null;\n      });\n    },\n\n    signUp: function (email, password) {\n      return sb.auth.signUp({ email: email, password: password }).then(function (res) {\n        if (res.error) throw res.error;\n        // When email confirmation is ON, there is no session yet.\n        return { needsConfirm: !res.data.session };\n      });\n    },\n\n    signIn: function (email, password) {\n      return sb.auth.signInWithPassword({ email: email, password: password }).then(function (res) {\n        if (res.error) throw res.error;\n        return { user: res.data.user };\n      });\n    },\n\n    signOut: function () {\n      return sb.auth.signOut().then(function (res) {\n        if (res.error) throw res.error;\n      });\n    },\n\n    sendReset: function (email) {\n      return sb.auth.resetPasswordForEmail(email, { redirectTo: redirectTo() }).then(function (res) {\n        if (res.error) throw res.error;\n        return { demo: false };\n      });\n    },\n\n    updatePassword: function (email, password) {\n      // Supabase knows which user this is from the recovery session.\n      return sb.auth.updateUser({ password: password }).then(function (res) {\n        if (res.error) throw res.error;\n      });\n    },\n\n    listIssues: function () {\n      return sb.from(\"issues\").select(\"*\").order(\"updated_at\", { ascending: false }).then(function (res) {\n        if (res.error) throw res.error;\n        return (res.data || []).map(function (r) {\n          return {\n            id: r.id,\n            title: r.title,\n            description: r.description || \"\",\n            status: r.status,\n            priority: r.priority,\n            createdAt: new Date(r.created_at).getTime(),\n            updatedAt: new Date(r.updated_at).getTime()\n          };\n        });\n      });\n    },\n\n    createIssue: function (issue) {\n      return sb.from(\"issues\").insert({\n        title: issue.title,\n        description: issue.description,\n        status: issue.status,\n        priority: issue.priority\n      }).select().then(function (res) {\n        if (res.error) throw res.error;\n        return res.data;\n      });\n    },\n\n    updateIssue: function (id, patch) {\n      var payload = { updated_at: new Date().toISOString() };\n      for (var k in patch) if (Object.prototype.hasOwnProperty.call(patch, k)) payload[k] = patch[k];\n      return sb.from(\"issues\").update(payload).eq(\"id\", id).then(function (res) {\n        if (res.error) throw res.error;\n      });\n    },\n\n    deleteIssue: function (id) {\n      return sb.from(\"issues\").delete().eq(\"id\", id).then(function (res) {\n        if (res.error) throw res.error;\n      });\n    },\n\n    onAuthChange: function (handler) {\n      sb.auth.onAuthStateChange(handler);\n    }\n  };\n\n  var api = cloudEnabled ? cloudBackend : demoBackend;\n\n  /* ==================================================================\n```\n\n---\n\n## Part 18 \u2014 App state and switching between screens\nThe state is four variables plus the issues array. Then the screen switcher:\n`hideAll()` hides every view, and `showAuth` / `showReset` / `showApp` reveal the\nright one.\n\n`showApp()` clears the issue array and re-renders *before* loading the new data,\nso a previous user's rows can never flash on screen for a moment.\n```js\n     App state\n     ================================================================== */\n  var issues = [];\n  var filter = \"all\";\n  var query = \"\";\n  var editingId = null;\n  var inRecovery = false;   // true while the user is setting a new password\n  var userEmail = \"\";\n  var resetEmail = \"\";      // which account a password reset applies to\n\n  /* ==================================================================\n     Screen switching\n     ================================================================== */\n  function hideAll() {\n    el(\"authView\").hidden = true;\n    el(\"resetView\").hidden = true;\n    el(\"appView\").hidden = true;\n  }\n\n  function showPane(name) {\n    [\"pane-login\", \"pane-register\", \"pane-forgot\", \"pane-sent\"].forEach(function (id) {\n      el(id).hidden = id !== \"pane-\" + name;\n    });\n  }\n\n  function showAuth(pane) {\n    hideAll();\n    el(\"authView\").hidden = false;\n    showPane(pane || \"login\");\n    el(\"loginPassword\").value = \"\";\n    showMsg(el(\"loginErr\"), \"\");   // don't leave a stale error on screen\n  }\n\n  function showReset() {\n    inRecovery = true;\n    hideAll();\n    el(\"resetView\").hidden = false;\n    el(\"resetPassword\").value = \"\";\n    el(\"resetConfirm\").value = \"\";\n    el(\"resetPassword\").focus();\n  }\n\n  function showApp() {\n    if (inRecovery) return;\n    hideAll();\n    el(\"appView\").hidden = false;\n    el(\"whoami\").textContent = userEmail;\n    el(\"whoami\").title = userEmail;\n    el(\"demoBanner\").hidden = api.mode !== \"demo\";\n\n    // Clear any rows left over from a previous user BEFORE the new ones\n    // load, so nobody ever sees someone else's issues for a moment.\n    issues = [];\n    filter = \"all\";\n    query = \"\";\n    el(\"search\").value = \"\";\n    render();\n\n    refresh();\n  }\n\n  /* ==================================================================\n```\n\n---\n\n## Part 19 \u2014 Rendering the issue list\n`visibleIssues()` applies the filter and the search text, then sorts: pending\nfirst, newest first. `render()` turns them into HTML, or into the empty state.\n\n`card()` builds one issue as a string. Notice every interpolation of user text is\nwrapped in `esc()`, and each button carries `data-action` plus `data-id` on the\ncard \u2014 that's what Part 20 hangs off.\n```js\n     Tracker: rendering\n     ================================================================== */\n  var listEl = el(\"list\");\n  var tabs = Array.prototype.slice.call(document.querySelectorAll(\".tab\"));\n\n  function visibleIssues() {\n    var q = query.trim().toLowerCase();\n    return issues\n      .filter(function (it) { return filter === \"all\" ? true : it.status === filter; })\n      .filter(function (it) {\n        if (!q) return true;\n        return (it.title + \" \" + (it.description || \"\")).toLowerCase().indexOf(q) !== -1;\n      })\n      .sort(function (a, b) {\n        if (a.status !== b.status) return a.status === \"pending\" ? -1 : 1;\n        return b.updatedAt - a.updatedAt;\n      });\n  }\n\n  function updateStats() {\n    var total = issues.length;\n    var done = issues.filter(function (i) { return i.status === \"done\"; }).length;\n    var pending = total - done;\n\n    el(\"statTotal\").textContent = total;\n    el(\"statDone\").textContent = done;\n    el(\"statPending\").textContent = pending;\n    el(\"cAll\").textContent = total;\n    el(\"cPending\").textContent = pending;\n    el(\"cDone\").textContent = done;\n\n    tabs.forEach(function (t) {\n      t.setAttribute(\"aria-selected\", String(t.dataset.filter === filter));\n    });\n  }\n\n  function render() {\n    updateStats();\n    var items = visibleIssues();\n    listEl.innerHTML = items.length ? items.map(card).join(\"\") : emptyState(issues.length);\n  }\n\n  function card(it) {\n    var isDone = it.status === \"done\";\n    return '\u003Carticle class=\"issue' + (isDone ? \" is-done\" : \"\") + '\" data-id=\"' + esc(it.id) + '\">' +\n      '\u003Cbutton class=\"check\" data-action=\"toggle\" aria-pressed=\"' + isDone + '\" ' +\n        'aria-label=\"Mark as ' + (isDone ? \"pending\" : \"done\") + '\" title=\"Toggle done\">' +\n        '\u003Csvg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"3\" ' +\n        'stroke-linecap=\"round\" stroke-linejoin=\"round\">\u003Cpath d=\"M5 13l4 4L19 7\"/>\u003C/svg>' +\n      '\u003C/button>' +\n      '\u003Cdiv class=\"body\">' +\n        '\u003Cdiv class=\"title\">' + esc(it.title) + '\u003C/div>' +\n        (it.description ? '\u003Cdiv class=\"desc\">' + esc(it.description) + '\u003C/div>' : \"\") +\n        '\u003Cdiv class=\"meta\">' +\n          '\u003Cspan class=\"pill ' + esc(it.status) + '\">' + esc(it.status) + '\u003C/span>' +\n          '\u003Cspan class=\"pill ' + esc(it.priority) + '\">' + esc(it.priority) + '\u003C/span>' +\n          '\u003Cspan class=\"when\">' + timeAgo(it.updatedAt || it.createdAt) + '\u003C/span>' +\n        '\u003C/div>' +\n      '\u003C/div>' +\n      '\u003Cdiv class=\"actions\">' +\n        '\u003Cbutton class=\"btn ghost icon\" data-action=\"edit\" title=\"Edit issue\" aria-label=\"Edit issue\">' +\n          '\u003Csvg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" ' +\n          'stroke-linecap=\"round\" stroke-linejoin=\"round\">\u003Cpath d=\"M12 20h9\"/>' +\n          '\u003Cpath d=\"M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z\"/>\u003C/svg>' +\n        '\u003C/button>' +\n        '\u003Cbutton class=\"btn ghost icon danger\" data-action=\"delete\" title=\"Delete issue\" aria-label=\"Delete issue\">' +\n          '\u003Csvg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" ' +\n          'stroke-linecap=\"round\" stroke-linejoin=\"round\">\u003Cpath d=\"M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6\"/>\u003C/svg>' +\n        '\u003C/button>' +\n      '\u003C/div>' +\n    '\u003C/article>';\n  }\n\n  function emptyState(total) {\n    var msg = total === 0\n      ? \"No issues yet. Create your first one to get started.\"\n      : \"No issues match this view.\";\n    var btn = total === 0\n      ? '\u003Cbutton class=\"btn primary\" data-action=\"new\">Create issue\u003C/button>'\n      : '\u003Cbutton class=\"btn\" data-action=\"clear-filters\">Clear filters\u003C/button>';\n    return '\u003Cdiv class=\"empty\">' +\n      '\u003Csvg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\">' +\n      '\u003Crect x=\"3\" y=\"4\" width=\"18\" height=\"17\" rx=\"2\"/>\u003Cpath d=\"M8 2v4M16 2v4M3 10h18M9 15l2 2 4-4\"/>\u003C/svg>' +\n      '\u003Cp>' + esc(msg) + '\u003C/p>' + btn + '\u003C/div>';\n  }\n\n  /* Load the current user's issues and redraw. */\n  function refresh() {\n    return api.listIssues().then(function (rows) {\n      issues = rows || [];\n      render();\n    }).catch(function (e) {\n      toast(\"Could not load issues: \" + friendly(e.message));\n    });\n  }\n\n  function byId(id) {\n    for (var i = 0; i \u003C issues.length; i++) if (issues[i].id === id) return issues[i];\n    return null;\n  }\n\n  /* Mutate on the server, then reload so the UI matches the database. */\n  function mutate(promise, okMsg) {\n    return promise.then(function () {\n      return refresh();\n    }).then(function () {\n      if (okMsg) toast(okMsg);\n    }).catch(function (e) {\n      toast(\"Error: \" + friendly(e.message));\n      return refresh();\n    });\n  }\n\n  /* ==================================================================\n```\n\n---\n\n## Part 20 \u2014 Dashboard interactions\n**One** click listener on the list container handles every card button, present\nand future. It reads `data-action` to decide what to do and `data-id` to find\nwhich issue \u2014 so cards can be re-rendered freely without re-binding anything.\n\nEvery write goes through `mutate()`: change it on the server, reload, then toast.\nThat keeps the screen and the database in agreement instead of trusting two\ncopies to stay in sync.\n```js\n     List interactions\n     ================================================================== */\n  listEl.addEventListener(\"click\", function (e) {\n    var actionEl = e.target.closest(\"[data-action]\");\n    if (!actionEl) return;\n    var action = actionEl.dataset.action;\n\n    if (action === \"new\") { openModal(null); return; }\n    if (action === \"clear-filters\") {\n      filter = \"all\";\n      query = \"\";\n      el(\"search\").value = \"\";\n      render();\n      return;\n    }\n\n    var row = e.target.closest(\".issue\");\n    if (!row) return;\n    var it = byId(row.dataset.id);\n    if (!it) return;\n\n    if (action === \"toggle\") {\n      var next = it.status === \"done\" ? \"pending\" : \"done\";\n      mutate(api.updateIssue(it.id, { status: next }),\n             next === \"done\" ? \"Marked as done\" : \"Moved back to pending\");\n    } else if (action === \"edit\") {\n      openModal(it);\n    } else if (action === \"delete\") {\n      if (confirm('Delete \"' + it.title + '\"?\\nThis cannot be undone.')) {\n        mutate(api.deleteIssue(it.id), \"Issue deleted\");\n      }\n    }\n  });\n\n  tabs.forEach(function (t) {\n    t.addEventListener(\"click\", function () {\n      filter = t.dataset.filter;\n      render();\n    });\n  });\n  el(\"search\").addEventListener(\"input\", function (e) {\n    query = e.target.value;\n    render();\n  });\n\n  /* ==================================================================\n```\n\n---\n\n## Part 21 \u2014 The create/edit dialog logic\n`openModal(issue)` fills the form; passing `null` means \"new issue\". On submit,\n`editingId` decides whether we create or update. The dialog closes on Cancel, on\na backdrop click, and on Escape.\n```js\n     Create / edit dialog\n     ================================================================== */\n  var backdrop = el(\"backdrop\");\n  var fTitle = el(\"fieldTitle\");\n  var fDesc = el(\"fieldDesc\");\n  var fStatus = el(\"fieldStatus\");\n  var fPriority = el(\"fieldPriority\");\n  var formErr = el(\"formErr\");\n\n  function openModal(issue) {\n    editingId = issue ? issue.id : null;\n    el(\"modalTitle\").textContent = issue ? \"Edit issue\" : \"New issue\";\n    el(\"saveBtn\").textContent = issue ? \"Save changes\" : \"Create issue\";\n    fTitle.value = issue ? issue.title : \"\";\n    fDesc.value = issue ? (issue.description || \"\") : \"\";\n    fStatus.value = issue ? issue.status : \"pending\";\n    fPriority.value = issue ? issue.priority : \"medium\";\n    showMsg(formErr, \"\");\n    backdrop.classList.add(\"open\");\n    document.body.style.overflow = \"hidden\";\n    setTimeout(function () { fTitle.focus(); }, 30);\n  }\n\n  function closeModal() {\n    backdrop.classList.remove(\"open\");\n    document.body.style.overflow = \"\";\n    editingId = null;\n  }\n\n  el(\"newBtn\").addEventListener(\"click\", function () { openModal(null); });\n  el(\"cancelBtn\").addEventListener(\"click\", closeModal);\n  backdrop.addEventListener(\"mousedown\", function (e) {\n    if (e.target === backdrop) closeModal();\n  });\n  document.addEventListener(\"keydown\", function (e) {\n    if (e.key === \"Escape\" && backdrop.classList.contains(\"open\")) closeModal();\n  });\n\n  el(\"issueForm\").addEventListener(\"submit\", function (e) {\n    e.preventDefault();\n    var title = fTitle.value.trim();\n    if (!title) {\n      showMsg(formErr, \"Please enter a title.\", \"error\");\n      fTitle.focus();\n      return;\n    }\n    showMsg(formErr, \"\");\n\n    var data = {\n      title: title,\n      description: fDesc.value.trim(),\n      status: fStatus.value,\n      priority: fPriority.value\n    };\n\n    var btn = el(\"saveBtn\");\n    busy(btn, true, \"Saving\u2026\");\n    var work = editingId\n      ? api.updateIssue(editingId, data)\n      : api.createIssue(data);\n\n    mutate(work, editingId ? \"Changes saved\" : \"Issue created\")\n      .then(function () { busy(btn, false); closeModal(); });\n  });\n\n  /* ==================================================================\n```\n\n---\n\n## Part 22 \u2014 Login, register, forgot-password and reset handlers\nEach form follows the same shape: `preventDefault`, read and validate the fields,\ndisable the button, call `api`, then either move on or show `friendly(error)`.\n\nTwo details worth noticing. Register checks the length and the match *before*\ncalling the network. And after a successful reset, `resetEmail` is what tells the\ndemo backend whose password to change.\n```js\n     Auth: sign in / register / forgot / reset\n     ================================================================== */\n  el(\"toRegister\").addEventListener(\"click\", function () {\n    showMsg(el(\"regErr\"), \"\");\n    showPane(\"register\");\n  });\n  el(\"toForgot\").addEventListener(\"click\", function () {\n    showMsg(el(\"forgotErr\"), \"\");\n    showPane(\"forgot\");\n  });\n  el(\"toLoginFromReg\").addEventListener(\"click\", function () { showAuth(\"login\"); });\n  el(\"toLoginFromForgot\").addEventListener(\"click\", function () { showAuth(\"login\"); });\n  el(\"sentBack\").addEventListener(\"click\", function () { showAuth(\"login\"); });\n\n  el(\"loginForm\").addEventListener(\"submit\", function (e) {\n    e.preventDefault();\n    var email = el(\"loginEmail\").value.trim();\n    var password = el(\"loginPassword\").value;\n    var err = el(\"loginErr\");\n    showMsg(err, \"\");\n\n    if (!email || !password) { showMsg(err, \"Enter your email and password.\"); return; }\n\n    var btn = el(\"loginBtn\");\n    busy(btn, true, \"Signing in\u2026\");\n    api.signIn(email, password).then(function () {\n      busy(btn, false);\n      userEmail = email;\n      showApp();\n      toast(\"Signed in\");\n    }).catch(function (ex) {\n      busy(btn, false);\n      showMsg(err, friendly(ex.message));\n    });\n  });\n\n  el(\"registerForm\").addEventListener(\"submit\", function (e) {\n    e.preventDefault();\n    var email = el(\"regEmail\").value.trim();\n    var password = el(\"regPassword\").value;\n    var confirmPw = el(\"regConfirm\").value;\n    var err = el(\"regErr\");\n    showMsg(err, \"\");\n\n    if (!email) { showMsg(err, \"Enter your email.\"); return; }\n    if (password.length \u003C 6) { showMsg(err, \"Password must be at least 6 characters.\"); return; }\n    if (password !== confirmPw) { showMsg(err, \"The two passwords do not match.\"); return; }\n\n    var btn = el(\"regBtn\");\n    busy(btn, true, \"Creating\u2026\");\n    api.signUp(email, password).then(function (res) {\n      busy(btn, false);\n      el(\"loginEmail\").value = email;\n      if (res.needsConfirm) {\n        el(\"sentTitle\").textContent = \"Confirm your email\";\n        el(\"sentBody\").textContent = \"We sent a confirmation link to \" + email +\n          \". Click it, then come back and sign in.\";\n        showMsg(el(\"sentNote\"), \"Didn't get it? Check your spam folder.\", \"info\");\n        el(\"sentDemoWrap\").hidden = true;\n        showPane(\"sent\");\n      } else {\n        userEmail = email;\n        showApp();\n        toast(\"Account created\");\n      }\n    }).catch(function (ex) {\n      busy(btn, false);\n      showMsg(err, friendly(ex.message));\n    });\n  });\n\n  el(\"forgotForm\").addEventListener(\"submit\", function (e) {\n    e.preventDefault();\n    var email = el(\"forgotEmail\").value.trim();\n    var err = el(\"forgotErr\");\n    showMsg(err, \"\");\n\n    if (!email) { showMsg(err, \"Enter your email.\"); return; }\n\n    var btn = el(\"forgotBtn\");\n    busy(btn, true, \"Sending\u2026\");\n    api.sendReset(email).then(function (res) {\n      busy(btn, false);\n      if (res && res.demo) {\n        el(\"sentTitle\").textContent = \"Demo mode can't send email\";\n        el(\"sentBody\").textContent =\n          \"Sending a reset link needs a mail server, which a plain web page doesn't have. \" +\n          \"Configure Supabase (see the Docs button) and this becomes a real email. \" +\n          \"For now you can go straight to the reset screen.\";\n        showMsg(el(\"sentNote\"), \"\");\n        el(\"sentDemoWrap\").hidden = false;\n      } else {\n        el(\"sentTitle\").textContent = \"Check your email\";\n        el(\"sentBody\").textContent = \"If an account exists for \" + email +\n          \", we've sent a link to reset your password. The link expires shortly, so use it soon.\";\n        showMsg(el(\"sentNote\"), \"Nothing arrived? Check spam, or try again in a minute.\", \"info\");\n        el(\"sentDemoWrap\").hidden = true;\n      }\n      showPane(\"sent\");\n    }).catch(function (ex) {\n      busy(btn, false);\n      showMsg(err, friendly(ex.message));\n    });\n  });\n\n  el(\"sentDemoBtn\").addEventListener(\"click\", function () {\n    resetEmail = el(\"forgotEmail\").value.trim() || userEmail;\n    showReset();\n  });\n\n  el(\"resetForm\").addEventListener(\"submit\", function (e) {\n    e.preventDefault();\n    var password = el(\"resetPassword\").value;\n    var confirmPw = el(\"resetConfirm\").value;\n    var err = el(\"resetErr\");\n    showMsg(err, \"\");\n\n    if (password.length \u003C 6) { showMsg(err, \"Password must be at least 6 characters.\"); return; }\n    if (password !== confirmPw) { showMsg(err, \"The two passwords do not match.\"); return; }\n\n    var btn = el(\"resetBtn\");\n    busy(btn, true, \"Saving\u2026\");\n    api.updatePassword(resetEmail, password).then(function () {\n      busy(btn, false);\n      inRecovery = false;\n      el(\"loginEmail\").value = resetEmail || el(\"loginEmail\").value;\n      toast(\"Password updated\");\n      showAuth(\"login\");\n    }).catch(function (ex) {\n      busy(btn, false);\n      showMsg(err, friendly(ex.message));\n    });\n  });\n\n  el(\"resetCancel\").addEventListener(\"click\", function () {\n    inRecovery = false;\n    showAuth(\"login\");\n  });\n\n  el(\"signOutBtn\").addEventListener(\"click\", function () {\n    var btn = el(\"signOutBtn\");\n    busy(btn, true, \"Signing out\u2026\");\n    api.signOut().then(function () {\n      busy(btn, false);\n      issues = [];\n      query = \"\";\n      filter = \"all\";\n      el(\"search\").value = \"\";\n      userEmail = \"\";\n      render();\n      showAuth(\"login\");\n      toast(\"Signed out\");\n    }).catch(function (ex) {\n      busy(btn, false);\n      toast(\"Error: \" + friendly(ex.message));\n    });\n  });\n\n  /* ==================================================================\n```\n\n---\n\n## Part 23 \u2014 Boot: which screen does this visitor see?\nThe last piece decides the first impression. If the URL contains a recovery\ntoken, show the reset screen immediately \u2014 before anything else \u2014 so the\ndashboard never flashes on the way there. Otherwise ask for the current session:\nsigned in means dashboard, signed out means login.\n```js\n     Boot\n     ================================================================== */\n  // A recovery link arrives as \"#...type=recovery\". Catch it before we\n  // decide which screen to show, so the app never flashes in between.\n  if (window.location.hash.indexOf(\"type=recovery\") !== -1) inRecovery = true;\n\n  api.onAuthChange(function (event, session) {\n    if (event === \"PASSWORD_RECOVERY\") { showReset(); return; }\n    if (event === \"SIGNED_OUT\") { inRecovery = false; showAuth(\"login\"); return; }\n    if (event === \"SIGNED_IN\" && !inRecovery && session) {\n      userEmail = session.user ? session.user.email : userEmail;\n      showApp();\n    }\n  });\n\n  if (inRecovery) {\n    showReset();\n  } else {\n    api.getSession().then(function (session) {\n      if (session && session.user) {\n        userEmail = session.user.email || \"\";\n        showApp();\n      } else {\n        showAuth(\"login\");\n      }\n    });\n  }\n})();\n\u003C/script>\n\u003C/body>\n\u003C/html>\n```\n\n---\n\n## Checking your work\n\nServe the folder and open it. You should see:\n\n1. The **login card** first \u2014 the dashboard must not be reachable without\n   signing in.\n2. **Create account** \u2192 register \u2192 you land on the dashboard with a yellow\n   *Demo mode* banner.\n3. Add a couple of issues, toggle one done, edit it, delete one, then filter and\n   search.\n4. **Sign out** \u2192 you are back at the login card, and signing in again brings\n   your issues back.\n5. **Forgot password?** \u2192 in demo mode it explains that email needs Supabase\n   configured; in cloud mode it sends a real reset link that opens Part 13's\n   screen.\n\nIf something misbehaves, open the browser console with F12. A\n`ReferenceError: X is not defined` usually means a part was pasted outside the\n`\u003Cscript>` tag, or in the wrong order.\n";
+
+  var docsView = el("docsView");
+
+  el("docsBtn").addEventListener("click", function () {
+    el("docsBody").textContent = DOCS;
+    docsView.classList.add("open");
+    document.body.style.overflow = "hidden";
+  });
+
+  function closeDocs() {
+    docsView.classList.remove("open");
+    if (!backdrop.classList.contains("open")) document.body.style.overflow = "";
+  }
+
+  el("docsClose").addEventListener("click", closeDocs);
+  docsView.addEventListener("mousedown", function (e) {
+    if (e.target === docsView) closeDocs();
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && docsView.classList.contains("open")) closeDocs();
+  });
+
+  /* ==================================================================
+     Boot
+     ================================================================== */
+  // A recovery link arrives as "#...type=recovery". Catch it before we
+  // decide which screen to show, so the app never flashes in between.
+  if (window.location.hash.indexOf("type=recovery") !== -1) inRecovery = true;
+
+  api.onAuthChange(function (event, session) {
+    if (event === "PASSWORD_RECOVERY") { showReset(); return; }
+    if (event === "SIGNED_OUT") { inRecovery = false; showAuth("login"); return; }
+    if (event === "SIGNED_IN" && !inRecovery && session) {
+      userEmail = session.user ? session.user.email : userEmail;
+      showApp();
+    }
+  });
+
+  if (inRecovery) {
+    showReset();
+  } else {
+    api.getSession().then(function (session) {
+      if (session && session.user) {
+        userEmail = session.user.email || "";
+        showApp();
+      } else {
+        showAuth("login");
+      }
+    });
+  }
+})();
+</script>
+</body>
+</html>
