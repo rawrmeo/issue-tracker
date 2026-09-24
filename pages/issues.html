@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Issues · Issue Tracker</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%234f46e5'/%3E%3Cpath d='M28 52l15 15 30-32' stroke='white' stroke-width='11' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
+  <script>try{if(localStorage.getItem('it.theme')==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
+  <link rel="stylesheet" href="../styles.css" />
+  <link rel="stylesheet" href="../enhancements.css" />
+  <link rel="stylesheet" href="../css/app.css" />
+  <link rel="stylesheet" href="../css/pages.css" />
+  <!-- ADDED: admin-only status sidebar styles -->
+  <link rel="stylesheet" href="../css/sidebar.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar"></aside>
+
+    <div class="main">
+      <header class="topbar" id="topbar"></header>
+
+      <main class="page-content">
+        <div id="roleBanner" class="banner" hidden></div>
+
+        <!-- ============ MOVED from index.html: add / edit issue form ======= -->
+        <section class="card panel" id="issueFormPanel">
+          <div class="panel-head">
+            <h2 id="formTitle">Report an issue</h2>
+            <p class="muted" id="formHint">Issues are added manually. Fill in the title and save.</p>
+          </div>
+
+          <form id="issueForm" class="issue-form">
+            <label class="field">
+              <span>Title <em>*</em></span>
+              <input id="issueTitle" type="text" placeholder="e.g. Login button does nothing on mobile" required maxlength="140" />
+            </label>
+
+            <label class="field">
+              <span>Description</span>
+              <textarea id="issueDescription" rows="3" placeholder="Steps to reproduce, expected result, notes…" maxlength="2000"></textarea>
+            </label>
+
+            <div class="row">
+              <label class="field">
+                <span>Priority</span>
+                <select id="issuePriority">
+                  <option value="low">Low</option>
+                  <option value="medium" selected>Medium</option>
+                  <option value="high">High</option>
+                </select>
+              </label>
+
+              <!-- Only admins may set the status directly -->
+              <label class="field" id="statusField" hidden>
+                <span>Status <small class="muted">(admin)</small></span>
+                <select id="issueStatus">
+                  <option value="pending" selected>Pending</option>
+                  <option value="fixing">Fixing</option>
+                  <option value="done">Done</option>
+                </select>
+              </label>
+
+              <label class="field">
+                <span>Label <small class="muted">(optional)</small></span>
+                <input id="issueLabel" type="text" placeholder="bug, feature, docs…" maxlength="40" />
+              </label>
+            </div>
+
+            <div class="form-actions">
+              <button type="submit" class="btn primary" id="issueSubmit">Report issue</button>
+              <button type="button" class="btn ghost" id="issueCancel" hidden>Cancel edit</button>
+            </div>
+          </form>
+        </section>
+
+        <!-- ============ MOVED from index.html: the filter row ============== -->
+        <section class="toolbar">
+          <div class="search">
+            <input type="search" id="searchInput" placeholder="Search title, description, label, reporter…" />
+          </div>
+
+          <div class="filters">
+            <div class="segmented" role="group" aria-label="Filter by status">
+              <button type="button" class="seg active" data-filter="status" data-value="all">All</button>
+              <button type="button" class="seg" data-filter="status" data-value="pending">Pending</button>
+              <button type="button" class="seg" data-filter="status" data-value="fixing">Fixing</button>
+              <button type="button" class="seg" data-filter="status" data-value="done">Done</button>
+            </div>
+
+            <select id="priorityFilter" aria-label="Filter by priority">
+              <option value="all">All priorities</option>
+              <option value="high">High</option>
+              <option value="medium">Medium</option>
+              <option value="low">Low</option>
+            </select>
+
+            <select id="sortSelect" aria-label="Sort issues">
+              <option value="newest">Newest first</option>
+              <option value="oldest">Oldest first</option>
+              <option value="priority">Priority</option>
+              <option value="title">Title (A–Z)</option>
+            </select>
+
+            <!-- Export used to live in the old topbar; it now belongs here -->
+            <button type="button" class="btn ghost admin-only" id="exportBtn" title="Download the issues as JSON">Export</button>
+            <button type="button" class="btn ghost danger admin-only" id="clearDoneBtn">Clear done</button>
+            <button type="button" class="btn ghost" id="refreshBtn" title="Reload from the database">Refresh</button>
+          </div>
+        </section>
+
+        <!-- ===== MOVED from index.html: date filter bar (Slice 2) ===== -->
+        <section class="card panel et-datebar" id="etDateBar">
+          <div class="et-datebar-head">
+            <span class="et-datebar-title">Filter by date</span>
+            <span class="et-count" id="etDateCount">0 results</span>
+          </div>
+
+          <div class="et-datebar-row">
+            <div class="et-presets" id="etDatePresets" role="group" aria-label="Date presets">
+              <button type="button" class="et-chip" data-preset="today">Today</button>
+              <button type="button" class="et-chip" data-preset="week">This Week</button>
+              <button type="button" class="et-chip" data-preset="month">This Month</button>
+              <button type="button" class="et-chip" data-preset="lastmonth">Last Month</button>
+              <button type="button" class="et-chip" data-preset="year">This Year</button>
+            </div>
+          </div>
+
+          <div class="et-datebar-row">
+            <label class="et-field">
+              <span>Month</span>
+              <input type="month" id="etMonth" />
+            </label>
+
+            <div class="et-field">
+              <span>Custom range</span>
+              <div class="et-range">
+                <input type="date" id="etFrom" aria-label="From date" />
+                <span class="et-dash">&rarr;</span>
+                <input type="date" id="etTo" aria-label="To date" />
+              </div>
+            </div>
+
+            <button type="button" class="btn ghost et-clear" id="etDateClear" disabled>Clear date filter</button>
+          </div>
+
+          <p class="et-hint" id="etDateNote" hidden>
+            No issues were created in this date range. Try a wider range, or
+            <button type="button" class="linkbtn" id="etDateNoteClear">clear the date filter</button>.
+          </p>
+        </section>
+
+        <!-- ============ MOVED from index.html: issue list ================== -->
+        <section id="issueList" class="issue-list" aria-live="polite"></section>
+
+        <div id="emptyState" class="empty" hidden>
+          <div class="empty-icon">🗂️</div>
+          <h3 id="emptyTitle">No issues yet</h3>
+          <p class="muted" id="emptyText">Report your first issue using the form above.</p>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <div class="backdrop" id="backdrop" hidden></div>
+  <div id="toast" class="toast" hidden></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="../supabase-config.js"></script>
+  <script src="../js/supabase.js"></script>
+  <script src="../js/toast.js"></script>
+  <script src="../js/modal.js"></script>
+  <script src="../js/auth.js"></script>
+  <script src="../js/layout.js"></script>
+  <!-- ADDED: admin-only status sidebar. Must load after layout.js and before
+       page-issues.js, which calls layout.render(). -->
+  <script src="../js/sidebar.js"></script>
+  <script src="../js/page-issues.js"></script>
+  <script src="../enhancements.js"></script>
+</body>
+</html>
