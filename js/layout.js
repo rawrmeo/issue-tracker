@@ -90,17 +90,40 @@
            window.navigator.standalone === true;
   }
 
-  function isIOS() {
-    return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-  }
-
   function installShouldShow() {
-    return !isStandalone() && Boolean(installPrompt || isIOS());
+    // Always offered unless it is already installed. Hiding it when the browser
+    // has no install prompt (Safari, Firefox) just made the feature look
+    // missing, so the button stays and explains the manual route instead.
+    return !isStandalone();
   }
 
   function refreshInstall() {
     var b = $('installAppBtn');
     if (b) b.hidden = !installShouldShow();
+  }
+
+  /* What to say when the browser has no install prompt of its own. */
+  function installHelp() {
+    var ua = navigator.userAgent;
+    if (/iPad|iPhone|iPod/.test(ua)) {
+      return 'Install on iPhone / iPad\n\n' +
+             '1. Tap the Share button (the square with an arrow)\n' +
+             '2. Scroll down and tap "Add to Home Screen"\n' +
+             '3. Tap Add';
+    }
+    if (/Android/.test(ua)) {
+      return 'Install on Android\n\n' +
+             'Open the browser menu (the three dots) and tap\n' +
+             '"Install app" or "Add to Home screen".';
+    }
+    if (/Firefox/i.test(ua)) {
+      return 'Firefox cannot install web apps on desktop.\n\n' +
+             'Open this page in Chrome or Edge instead - an install icon then\n' +
+             'appears in the address bar.';
+    }
+    return 'Install this app\n\n' +
+           "Look for the install icon in your browser's address bar, or open\n" +
+           'the browser menu and choose "Install app".';
   }
 
   function doInstall() {
@@ -113,15 +136,7 @@
       });
       return;
     }
-
-    window.alert('Install this app on your phone\n\n' +
-      'iPhone / iPad:\n' +
-      '  1. Tap the Share button (square with an arrow)\n' +
-      '  2. Scroll down and tap "Add to Home Screen"\n' +
-      '  3. Tap Add\n\n' +
-      'Android:\n' +
-      '  Open the browser menu and tap "Install app",\n' +
-      '  or "Add to Home screen".');
+    window.alert(installHelp());
   }
 
   window.addEventListener('beforeinstallprompt', function (e) {
@@ -181,7 +196,8 @@
         // Only rendered when the app can actually be installed, and hidden
         // again once it has been.
         '<button type="button" class="nav-link" id="installAppBtn" hidden ' +
-          'style="width:100%;background:none;border:0;cursor:pointer;font:inherit;text-align:left;">' +
+          'style="width:100%;background:none;border:0;cursor:pointer;font:inherit;' +
+          'text-align:left;color:var(--accent);">' +
           '<span class="nav-icon" aria-hidden="true">⬇️</span>' +
           '<span>Install app</span>' +
         '</button>' +
