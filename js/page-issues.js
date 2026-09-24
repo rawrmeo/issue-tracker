@@ -256,17 +256,17 @@
     if (!issue) return;
     if (!canManage(issue)) { toast('You can only delete your own issues.'); return; }
 
-    var ok = await ET.confirm('Delete “' + issue.title + '”? This cannot be undone.',
-      { title: 'Delete issue', okLabel: 'Delete' });
+    var ok = await ET.confirm('Move “' + issue.title + '” to the recycle bin? An admin can put it back.',
+      { title: 'Delete issue', okLabel: 'Move to bin' });
     if (!ok) return;
 
     var sb = ET.getClient();
     if (!sb) return;
-    var res = await sb.from('issues').delete().eq('id', id);
+    var res = await sb.rpc('soft_delete_issue', { p_id: id });
     if (res.error) { toast(ET.friendlyError(res.error)); return; }
     if (editingId === id) resetIssueForm();
     await refresh({ silent: true });
-    toast('Issue deleted.');
+    toast('Moved to the recycle bin.');
   }
 
   async function clearDone() {
@@ -274,16 +274,16 @@
     var done = issues.filter(function (i) { return i.status === 'done'; });
     if (!done.length) { toast('No done issues to clear.'); return; }
 
-    var ok = await ET.confirm('Delete ' + done.length + ' done issue(s)? This cannot be undone.',
-      { title: 'Clear done issues', okLabel: 'Delete ' + done.length });
+    var ok = await ET.confirm('Move ' + done.length + ' done issue(s) to the recycle bin? An admin can put them back.',
+      { title: 'Clear done issues', okLabel: 'Move ' + done.length + ' to bin' });
     if (!ok) return;
 
     var sb = ET.getClient();
     if (!sb) return;
-    var res = await sb.from('issues').delete().eq('status', 'done');
+    var res = await sb.rpc('soft_delete_done');
     if (res.error) { toast(ET.friendlyError(res.error)); return; }
     await refresh({ silent: true });
-    toast('Cleared ' + done.length + ' done issue(s).');
+    toast('Moved ' + done.length + ' issue(s) to the recycle bin.');
   }
 
   /* ------------------------------ rendering ------------------------------ */

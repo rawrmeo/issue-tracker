@@ -184,25 +184,18 @@ begin
 
   delete from public.issues;
 
+  -- Column-agnostic on purpose. jsonb_populate_record maps the stored JSON
+  -- straight back onto the table, so a snapshot restores correctly whether it
+  -- was taken before or after a column was added (issues.deleted_at, for one)
+  -- without this function having to be kept in step by hand.
   insert into public.issues
-    (id, title, description, priority, status, label,
-     author_id, created_at, updated_at, completed_at)
-  select
-    (r ->> 'id')::uuid,
-    r ->> 'title',
-    coalesce(r ->> 'description', ''),
-    coalesce(r ->> 'priority', 'medium'),
-    coalesce(r ->> 'status', 'pending'),
-    coalesce(r ->> 'label', ''),
-    (r ->> 'author_id')::uuid,
-    coalesce((r ->> 'created_at')::timestamptz, now()),
-    coalesce((r ->> 'updated_at')::timestamptz, now()),
-    nullif(r ->> 'completed_at', '')::timestamptz
+  select r2.*
   from jsonb_array_elements(
          (select payload from public.backups where id = p_id)
-       ) as r
+       ) as elem
+  cross join lateral jsonb_populate_record(null::public.issues, elem) as r2
   where exists (
-    select 1 from auth.users u where u.id = (r ->> 'author_id')::uuid
+    select 1 from auth.users u where u.id = (elem ->> 'author_id')::uuid
   );
 
   get diagnostics n_restored = row_count;

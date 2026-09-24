@@ -22,6 +22,9 @@ enforced by the **database**, not by the browser.
 - **Export** — admin can download every issue as JSON.
 - **Automatic backups** — the database snapshots every issue by itself; admins
   can view, download or restore any snapshot from the **Backups** page.
+- **Recycle bin** — deleting an issue moves it to the bin instead of destroying
+  it. Nothing is removed for good until an admin says so, from the
+  **Recycle bin** page.
 - **Light / dark theme.**
 - **No build step** — plain HTML/CSS/JS, deploys to Vercel as-is.
 
@@ -38,6 +41,7 @@ enforced by the **database**, not by the browser.
 | Promote / demote users | ✅ | ❌ |
 | Export issues | ✅ | ❌ |
 | View / restore / delete backups | ✅ | ❌ |
+| Restore from, or empty, the recycle bin | ✅ | ❌ |
 
 New issues always start as **Pending**. A reporter can never change a status.
 A user sees a banner explaining this, and each issue's status dropdown is
