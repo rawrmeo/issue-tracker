@@ -30,6 +30,7 @@
   var TOP_UP_AFTER_HOURS = 24;   // top up automatically if the newest is older
 
   var backups = [];
+  var autoOn = true;             // mirrors app_settings.auto_backup_enabled
   var escapeHtml = ET.escapeHtml;
   var toast = ET.toast;
 
@@ -73,6 +74,77 @@
 
     backups = res.data || [];
     renderList();
+  }
+
+  /* ------------------------------ settings ------------------------------- */
+
+  /** The automatic-backup switch, stored in the database so the trigger and
+      the nightly job see it too — not in this browser. */
+  async function loadSettings() {
+    var sb = client();
+    if (!sb) return;
+
+    var res = await sb.from('app_settings').select('auto_backup_enabled').limit(1);
+
+    if (res.error) {
+      setAutoState(null, res.error);
+      return;
+    }
+
+    autoOn = !!(res.data && res.data.length) ? res.data[0].auto_backup_enabled !== false : true;
+    setAutoState(autoOn);
+  }
+
+  function setAutoState(on, error) {
+    var toggle = $('autoBackupToggle');
+    if (toggle) {
+      toggle.checked = on !== false;
+      toggle.disabled = (on === null);
+    }
+
+    var chip = $('autoState');
+    if (!chip) return;
+
+    if (on === null) {
+      chip.textContent = 'not set up';
+      chip.className = 'role-chip role-user';
+      chip.title = String((error && error.message) || '');
+    } else if (on) {
+      chip.textContent = 'on';
+      chip.className = 'role-chip role-admin';
+      chip.title = 'Snapshots are taken automatically as issues change.';
+    } else {
+      chip.textContent = 'paused';
+      chip.className = 'role-chip role-user';
+      chip.title = 'Automatic snapshots are switched off.';
+    }
+  }
+
+  async function saveAutoBackup(on) {
+    var sb = client();
+    if (!sb) return;
+
+    var toggle = $('autoBackupToggle');
+    if (toggle) toggle.disabled = true;
+
+    var res = await sb.from('app_settings')
+      .update({ auto_backup_enabled: on, updated_at: new Date().toISOString() })
+      .eq('id', true);
+
+    if (toggle) toggle.disabled = false;
+
+    if (res.error) {
+      toast(ET.friendlyError(res.error));
+      loadSettings();                 // put the switch back where it really is
+      return;
+    }
+
+    autoOn = on;
+    setAutoState(on);
+    toast(on ? 'Automatic backups resumed.' : 'Automatic backups paused.');
+    setStatus(on
+      ? 'Automatic backups are on \u2014 a snapshot is taken as issues change.'
+      : 'Automatic backups are paused. Nothing is being snapshotted automatically.');
   }
 
   /* ------------------------------ rendering ------------------------------ */
@@ -156,8 +228,10 @@
     }
   }
 
-  /** Opening the page is itself enough to keep backups fresh. */
+  /** Opening the page is itself enough to keep backups fresh — unless an admin
+      has switched automatic backups off. */
   async function topUpIfStale() {
+    if (!autoOn) return;
     if (!backups.length) {
       await createBackup(true);
       return;
@@ -247,6 +321,9 @@
     var refreshBtn = $('refreshBtn');
     if (refreshBtn) refreshBtn.addEventListener('click', function () { loadBackups(); });
 
+    var toggle = $('autoBackupToggle');
+    if (toggle) toggle.addEventListener('change', function () { saveAutoBackup(toggle.checked); });
+
     var list = $('backupList');
     if (!list) return;
 
@@ -283,6 +360,7 @@
     }
 
     bindEvents();
+    await loadSettings();
     await loadBackups();
     await topUpIfStale();
   }

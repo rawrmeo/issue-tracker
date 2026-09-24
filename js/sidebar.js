@@ -99,6 +99,15 @@
     if (!sb) { box.textContent = ''; return; }
 
     try {
+      // Switched off by an admin? Show that instead of a stale time.
+      var setting = await sb.from('app_settings').select('auto_backup_enabled').limit(1);
+      if (!setting.error && setting.data && setting.data.length &&
+          setting.data[0].auto_backup_enabled === false) {
+        box.textContent = '💾 Backups: paused';
+        box.title = 'Automatic backups are switched off.';
+        return;
+      }
+
       var res = await sb.from('backups')
         .select('created_at')
         .order('created_at', { ascending: false })

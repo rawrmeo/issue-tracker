@@ -44,7 +44,37 @@ alter table public.backups enable row level security;
 
 
 -- ============================================================================
---  2. TAKE A SNAPSHOT
+--  2. SETTINGS  (one row, admins only)
+--     Right now just the switch for automatic backups.
+-- ============================================================================
+create table if not exists public.app_settings (
+  id                  boolean primary key default true check (id),
+  auto_backup_enabled boolean not null default true,
+  updated_at          timestamptz not null default now()
+);
+
+insert into public.app_settings (id) values (true) on conflict (id) do nothing;
+
+alter table public.app_settings enable row level security;
+
+drop policy if exists "admins read settings" on public.app_settings;
+create policy "admins read settings"
+  on public.app_settings for select
+  to authenticated
+  using (public.is_admin());
+
+drop policy if exists "admins change settings" on public.app_settings;
+create policy "admins change settings"
+  on public.app_settings for update
+  to authenticated
+  using (public.is_admin())
+  with check (public.is_admin());
+
+grant select, update on public.app_settings to authenticated;
+
+
+-- ============================================================================
+--  3. TAKE A SNAPSHOT
 --     Copies every issue into one row of public.backups.
 --     SECURITY DEFINER so it can read issues regardless of who triggered it
 --     (the automatic trigger fires for reporters too).
@@ -85,10 +115,43 @@ revoke all on function public.snapshot_issues(text) from public;
 
 
 -- ============================================================================
---  3. AUTOMATIC BACKUP ON ANY ISSUE CHANGE
---     Fires after every insert/update/delete on issues, but only actually
---     takes a snapshot if the last automatic one is more than an hour old.
---     One statement, not one row, so a bulk change is a single wrap-up.
+--  4. WHEN AN AUTOMATIC BACKUP IS DUE
+--     One place decides, so the trigger and the nightly job can never drift
+--     apart. Returns null when there is nothing to do:
+--       - switched off by an admin  -> do nothing
+--       - already took one this hour -> do nothing (the throttle)
+--       - otherwise                  -> take a snapshot
+-- ============================================================================
+create or replace function public.auto_snapshot()
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not coalesce((select auto_backup_enabled from public.app_settings limit 1), true) then
+    return null;
+  end if;
+
+  if exists (
+    select 1 from public.backups
+    where kind = 'auto' and created_at > now() - interval '1 hour'
+  ) then
+    return null;
+  end if;
+
+  return public.snapshot_issues('auto');
+end;
+$$;
+
+-- Internal: reached by the trigger and the cron job, never by the browser.
+revoke all on function public.auto_snapshot() from public;
+
+
+-- ============================================================================
+--  5. AUTOMATIC BACKUP ON ANY ISSUE CHANGE
+--     Fires after every insert/update/delete on issues. One statement, not one
+--     row, so a bulk change is a single wrap-up.
 -- ============================================================================
 create or replace function public.auto_backup_on_change()
 returns trigger
@@ -97,12 +160,7 @@ security definer
 set search_path = public
 as $$
 begin
-  if not exists (
-    select 1 from public.backups
-    where kind = 'auto' and created_at > now() - interval '1 hour'
-  ) then
-    perform public.snapshot_issues('auto');
-  end if;
+  perform public.auto_snapshot();
   return null;
 end;
 $$;
@@ -114,7 +172,7 @@ create trigger issues_auto_backup
 
 
 -- ============================================================================
---  4. ADMIN ACTIONS  (all re-check the role in the database)
+--  6. ADMIN ACTIONS  (all re-check the role in the database)
 -- ============================================================================
 
 -- "Back up now"
@@ -208,7 +266,7 @@ grant execute on function public.restore_backup(uuid) to authenticated;
 
 
 -- ============================================================================
---  5. WHO MAY READ / DELETE BACKUPS
+--  7. WHO MAY READ / DELETE BACKUPS
 --     Admins only. Nobody can insert by hand: snapshots only come from the
 --     two functions above.
 -- ============================================================================
@@ -228,7 +286,7 @@ grant select, delete on public.backups to authenticated;
 
 
 -- ============================================================================
---  6. OPTIONAL — A DAILY BACKUP ON QUIET DAYS
+--  8. OPTIONAL — A DAILY BACKUP ON QUIET DAYS
 --     The trigger above only fires when something changes. This adds a daily
 --     safety net at 02:00. pg_cron must be enabled once in the dashboard
 --     (Database -> Extensions -> pg_cron). If it is not, this block simply
@@ -250,7 +308,7 @@ begin
     perform cron.schedule(
       'issue-tracker-auto-backup',
       '0 2 * * *',
-      $job$select public.snapshot_issues('auto')$job$
+      $job$select public.auto_snapshot()$job$
     );
   exception when others then null;
   end;

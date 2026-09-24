@@ -21,10 +21,13 @@ enforced by the **database**, not by the browser.
 - **Stats bar** — total / pending / fixing / done / high-priority open.
 - **Export** — admin can download every issue as JSON.
 - **Automatic backups** — the database snapshots every issue by itself; admins
-  can view, download or restore any snapshot from the **Backups** page.
+  can view, download or restore any snapshot from the **Backups** page, and
+  switch the automatic half off if they would rather back up by hand.
 - **Recycle bin** — deleting an issue moves it to the bin instead of destroying
   it. Nothing is removed for good until an admin says so, from the
   **Recycle bin** page.
+- **User management** — admins can promote, demote, rename or delete an
+  account. Deleting keeps that person's issues on the board.
 - **Light / dark theme.**
 - **No build step** — plain HTML/CSS/JS, deploys to Vercel as-is.
 
@@ -39,6 +42,7 @@ enforced by the **database**, not by the browser.
 | Set status to **Fixing** or **Done** | ✅ | ❌ |
 | Clear done issues | ✅ | ❌ |
 | Promote / demote users | ✅ | ❌ |
+| Rename or delete a user | ✅ | ❌ |
 | Export issues | ✅ | ❌ |
 | View / restore / delete backups | ✅ | ❌ |
 | Restore from, or empty, the recycle bin | ✅ | ❌ |

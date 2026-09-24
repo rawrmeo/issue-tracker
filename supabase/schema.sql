@@ -169,7 +169,10 @@ begin
   end if;
 
   -- A reporter must not be able to hand their issue to someone else.
-  if new.author_id is distinct from old.author_id then
+  -- Admins are exempt: removing an account detaches its issues
+  -- (issues.author_id is ON DELETE SET NULL), and that detach is an UPDATE
+  -- which would otherwise be refused right here.
+  if new.author_id is distinct from old.author_id and not public.is_admin() then
     raise exception 'The reporter of an issue cannot be changed'
       using errcode = '42501';
   end if;

@@ -39,6 +39,19 @@
             </p>
           </div>
 
+          <div class="setting-row">
+            <div class="setting-text">
+              <span class="name">Automatic backups</span>
+              <span class="muted small">
+                Switch this off to pause automatic snapshots. <strong>Back up now</strong>
+                still works, and restores still take a safety snapshot first.
+              </span>
+            </div>
+            <div class="setting-control">
+              <input type="checkbox" class="switch" id="autoBackupToggle" aria-label="Automatic backups" />
+            </div>
+          </div>
+
           <div class="user-actions" style="display:flex;gap:.6rem;flex-wrap:wrap;">
             <button class="btn primary" type="button" id="backupNowBtn">Back up now</button>
             <button class="btn" type="button" id="refreshBtn">Refresh</button>
