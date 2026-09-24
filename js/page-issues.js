@@ -121,13 +121,106 @@
     setTimeout(function () { dot.classList.remove('pulse'); }, 600);
   }
 
+  /* --------------------------------- alerts ------------------------------
+   * A change to an issue shows up as a card in the corner for everyone
+   * looking at the board - including the admin who made it, so there is no
+   * doubt the write landed. Built with inline styles on purpose: it stays in
+   * this one file rather than needing its own stylesheet on every page.
+   * --------------------------------------------------------------------- */
+  var ALERT_COLOUR = {
+    created: '#4f46e5',
+    pending: '#b45309',
+    fixing:  '#2563eb',
+    done:    '#15803d',
+    removed: '#dc2626'
+  };
+
+  function alertHost() {
+    var host = $('issueAlerts');
+    if (host) return host;
+    host = document.createElement('div');
+    host.id = 'issueAlerts';
+    host.setAttribute('role', 'status');
+    host.setAttribute('aria-live', 'polite');
+    host.style.cssText =
+      'position:fixed;top:.9rem;right:.9rem;z-index:80;display:flex;flex-direction:column;' +
+      'gap:.5rem;max-width:min(92vw,340px);pointer-events:none;';
+    document.body.appendChild(host);
+    return host;
+  }
+
+  function showAlert(kind, heading, detail) {
+    var card = document.createElement('div');
+    card.style.cssText =
+      'pointer-events:auto;cursor:pointer;background:var(--surface);border:1px solid var(--border);' +
+      'border-left:4px solid ' + (ALERT_COLOUR[kind] || ALERT_COLOUR.created) + ';border-radius:10px;' +
+      'padding:.7rem .85rem;box-shadow:0 10px 30px rgba(16,20,30,.22);font-size:.85rem;' +
+      'opacity:0;transform:translateY(-6px);transition:opacity .18s,transform .18s;';
+
+    var headingEl = document.createElement('strong');
+    headingEl.textContent = heading;
+    headingEl.style.cssText = 'display:block;';
+    card.appendChild(headingEl);
+
+    if (detail) {
+      var detailEl = document.createElement('div');
+      detailEl.textContent = detail;
+      detailEl.style.cssText = 'color:var(--muted);margin-top:.15rem;word-break:break-word;';
+      card.appendChild(detailEl);
+    }
+
+    alertHost().appendChild(card);
+    requestAnimationFrame(function () {
+      card.style.opacity = '1';
+      card.style.transform = 'none';
+    });
+
+    function dismiss() {
+      card.style.opacity = '0';
+      card.style.transform = 'translateY(-6px)';
+      setTimeout(function () { if (card.parentNode) card.parentNode.removeChild(card); }, 220);
+    }
+
+    card.addEventListener('click', dismiss);   // click to dismiss early
+    setTimeout(dismiss, 8000);
+  }
+
   function subscribeRealtime() {
     var sb = ET.getClient();
     if (!sb) return;
     if (channel) { try { sb.removeChannel(channel); } catch (e) { /* ignore */ } }
     channel = sb.channel('tracker-issues')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'issues' },
-        function () { refresh({ silent: true }); })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'issues' },
+        function (payload) {
+          var row = payload.new || {};
+          flashLive();
+          showAlert('created', 'New issue reported', row.title || '');
+          refresh({ silent: true });
+        })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'issues' },
+        function (payload) {
+          var row = payload.new || {};
+          var before = issues.filter(function (i) { return i.id === row.id; })[0];
+
+          // Alert on a status change only - an edit that leaves the status
+          // alone should not shout.
+          if (before && row.status && before.status !== row.status) {
+            flashLive();
+            showAlert(row.status,
+              'Status changed to ' + (STATUS_LABEL[row.status] || row.status),
+              row.title || '');
+          }
+          refresh({ silent: true });
+        })
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'issues' },
+        function (payload) {
+          var row = payload.old || {};
+          // The delete payload only carries the key unless the table uses
+          // REPLICA IDENTITY FULL, so fall back to a plain message.
+          flashLive();
+          showAlert('removed', 'Issue removed', row.title || 'An issue was removed.');
+          refresh({ silent: true });
+        })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' },
         function () { refresh({ silent: true }); })
       .subscribe(function (status) {
