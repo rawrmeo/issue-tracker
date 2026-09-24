@@ -21,7 +21,11 @@
 
   var NAV = [
     { key: 'dashboard', label: 'Dashboard', icon: '🏠', href: 'dashboard.html' },
-    { key: 'issues',    label: 'Issues',    icon: '📋', href: 'issues.html' },
+    { key: 'issues',    label: 'Issues',    icon: '📋', href: 'issues.html' }
+  ];
+
+  /* These sit at the bottom of the sidebar, just above the account card. */
+  var FOOTER_NAV = [
     { key: 'profile',   label: 'Profile',   icon: '👤', href: 'profile.html' },
     { key: 'settings',  label: 'Settings',  icon: '⚙️', href: 'settings.html' }
   ];
@@ -74,17 +78,25 @@
 
   /* ============================== rendering ============================== */
 
+  function linkHtml(item, active) {
+    return '<a class="nav-link' + (item.key === active ? ' active' : '') + '"' +
+      ' href="' + item.href + '"' +
+      (item.key === active ? ' aria-current="page"' : '') + '>' +
+      '<span class="nav-icon" aria-hidden="true">' + item.icon + '</span>' +
+      '<span>' + item.label + '</span>' +
+    '</a>';
+  }
+
   function sidebarHtml(user, active) {
     var admin = user.role === ET.ADMIN;
 
     var links = NAV.map(function (item) {
       if (item.admin && !admin) return '';           // Users link hidden for reporters
-      return '<a class="nav-link' + (item.key === active ? ' active' : '') + '"' +
-        ' href="' + item.href + '"' +
-        (item.key === active ? ' aria-current="page"' : '') + '>' +
-        '<span class="nav-icon" aria-hidden="true">' + item.icon + '</span>' +
-        '<span>' + item.label + '</span>' +
-      '</a>';
+      return linkHtml(item, active);
+    }).join('');
+
+    var footerLinks = FOOTER_NAV.map(function (item) {
+      return linkHtml(item, active);
     }).join('');
 
     var initial = ET.escapeHtml((user.username || '?').charAt(0).toUpperCase());
@@ -101,6 +113,7 @@
       '<nav class="nav" aria-label="Main">' + links + '</nav>' +
 
       '<div class="sidebar-foot">' +
+        '<nav class="nav nav-foot" aria-label="Account">' + footerLinks + '</nav>' +
         '<div class="user-card">' +
           '<span class="avatar" id="sidebarAvatar">' + initial + '</span>' +
           '<div class="user-meta">' +
