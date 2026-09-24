@@ -251,6 +251,19 @@
     await refresh({ silent: true });
   }
 
+  /* The SQL half of the recycle bin not run yet? Say exactly that rather than
+     letting "Could not find the function ... in the schema cache" through. */
+  function friendlyWriteError(error) {
+    var m = String((error && error.message) || '');
+    if (/Could not find the function|PGRST202/i.test(m)) {
+      return 'The recycle bin is not set up yet. Run sql/recycle_bin.sql in the Supabase SQL Editor, then reload this page.';
+    }
+    if (/deleted_at|schema cache.*column/i.test(m)) {
+      return 'The recycle bin is not set up yet. Run sql/recycle_bin.sql in the Supabase SQL Editor, then reload this page.';
+    }
+    return ET.friendlyError(error);
+  }
+
   async function deleteIssue(id) {
     var issue = issues.filter(function (i) { return i.id === id; })[0];
     if (!issue) return;
@@ -263,7 +276,7 @@
     var sb = ET.getClient();
     if (!sb) return;
     var res = await sb.rpc('soft_delete_issue', { p_id: id });
-    if (res.error) { toast(ET.friendlyError(res.error)); return; }
+    if (res.error) { toast(friendlyWriteError(res.error)); return; }
     if (editingId === id) resetIssueForm();
     await refresh({ silent: true });
     toast('Moved to the recycle bin.');
@@ -281,7 +294,7 @@
     var sb = ET.getClient();
     if (!sb) return;
     var res = await sb.rpc('soft_delete_done');
-    if (res.error) { toast(ET.friendlyError(res.error)); return; }
+    if (res.error) { toast(friendlyWriteError(res.error)); return; }
     await refresh({ silent: true });
     toast('Moved ' + done.length + ' issue(s) to the recycle bin.');
   }
