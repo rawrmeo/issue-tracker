@@ -28,7 +28,7 @@
   var $ = function (id) { return document.getElementById(id); };
 
   var ADMIN_LINKS = [
-    { label: 'Status',      icon: '📊', href: 'admin-status.html' },
+    { label: 'Reported',    icon: '📥', href: 'admin-reported.html' },
     { label: 'All issues',  icon: '🏠', href: 'admin-all.html' },
     { sep: true },
     { label: 'Users',       icon: '👥', href: 'users.html' },
