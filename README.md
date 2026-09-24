@@ -244,6 +244,10 @@ A service worker caches the shell, so it also opens when the phone is offline
 > run the whole `supabase/schema.sql`, which includes them):
 > `sql/admin_note.sql`, `sql/recycle_bin.sql`, `sql/backups.sql`.
 
+> **Want sample data?** `sql/demo_data.sql` fills the board with 14 demo
+> issues — varied statuses, a repeated title and several older than a week.
+> It only inserts when the board is empty, so it cannot overwrite real work.
+
 ---
 
 ## Quick reference
