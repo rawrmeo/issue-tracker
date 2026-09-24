@@ -9,6 +9,10 @@ enforced by the **database**, not by the browser.
 
 **➡️ First time here? Follow [`SETUP.md`](SETUP.md) to connect your database.**
 
+> **Or run [`sql/SETUP_ALL.sql`](sql/SETUP_ALL.sql) in the SQL Editor.** It is that
+> same setup bundled into one paste — base schema plus automatic backups, the
+> recycle bin and admin user management.
+
 ---
 
 ## Features
