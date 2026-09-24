@@ -1,0 +1,1266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Mini Issue Tracker</title>
+
+<!-- Supabase client (loaded from a CDN; no install, no build step).
+     If you are offline this fails silently and the app runs in demo mode. -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<style>
+  :root {
+    --bg: #f5f6f8;
+    --surface: #ffffff;
+    --surface-2: #f0f1f4;
+    --border: #e2e4e9;
+    --text: #1b1d22;
+    --muted: #6b7280;
+    --accent: #4f46e5;
+    --accent-soft: #eef0ff;
+    --done: #15803d;
+    --done-soft: #e8f6ed;
+    --pending: #b45309;
+    --pending-soft: #fdf3e3;
+    --high: #dc2626;
+    --medium: #d97706;
+    --low: #0891b2;
+    --danger: #dc2626;
+    --shadow: 0 1px 2px rgba(16, 20, 30, .06), 0 8px 24px rgba(16, 20, 30, .08);
+    --radius: 12px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1117;
+      --surface: #171a22;
+      --surface-2: #1e222c;
+      --border: #2a2f3b;
+      --text: #e7e9ee;
+      --muted: #9aa2b1;
+      --accent: #8b8cf7;
+      --accent-soft: #232544;
+      --done: #4ade80;
+      --done-soft: #14301f;
+      --pending: #fbbf24;
+      --pending-soft: #33260f;
+      --high: #f87171;
+      --medium: #fbbf24;
+      --low: #22d3ee;
+      --danger: #f87171;
+      --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 12px 32px rgba(0, 0, 0, .35);
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 15px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  button, input, select, textarea { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+  [hidden] { display: none !important; }
+
+  /* ============ buttons ============ */
+  .btn {
+    display: inline-flex; align-items: center; gap: 7px;
+    border: 1px solid var(--border); background: var(--surface);
+    padding: 8px 13px; border-radius: 9px; font-size: 14px; font-weight: 550;
+    transition: background .15s, border-color .15s, transform .05s;
+  }
+  .btn:hover { background: var(--surface-2); }
+  .btn:active { transform: translateY(1px); }
+  .btn:disabled { opacity: .6; cursor: default; }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn.primary:hover:not(:disabled) { filter: brightness(1.07); }
+  .btn.ghost { border-color: transparent; background: transparent; padding: 7px 9px; }
+  .btn.ghost:hover { background: var(--surface-2); }
+  .btn.danger { color: var(--danger); }
+  .btn.icon { padding: 7px; line-height: 0; }
+  .btn svg { width: 16px; height: 16px; }
+  .btn.block { width: 100%; justify-content: center; }
+
+  /* ============ auth screens ============ */
+  .auth-wrap { min-height: 100vh; display: grid; place-items: center; padding: 24px 18px; }
+  .auth-card {
+    width: 100%; max-width: 400px; background: var(--surface);
+    border: 1px solid var(--border); border-radius: 16px; padding: 26px;
+    box-shadow: var(--shadow);
+  }
+  .auth-brand { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; }
+  .auth-brand h1 { font-size: 17px; margin: 0; letter-spacing: -.2px; }
+  .auth-brand p { margin: 0; font-size: 12px; color: var(--muted); }
+  .auth-card h2 { font-size: 16px; margin: 0 0 6px; }
+  .auth-card .sub { color: var(--muted); font-size: 13.5px; margin: 0 0 18px; }
+  .auth-foot { margin-top: 16px; font-size: 13.5px; display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .auth-foot.single { justify-content: flex-start; }
+  .auth-foot.center { justify-content: center; }
+  .linkbtn {
+    background: none; border: 0; padding: 0; color: var(--accent);
+    font-size: 13.5px; font-weight: 550;
+  }
+  .linkbtn:hover { text-decoration: underline; }
+  .note { font-size: 12.5px; color: var(--muted); margin-top: 14px; }
+  .note code { background: var(--surface-2); padding: 1px 5px; border-radius: 5px; }
+
+  /* ============ fields ============ */
+  .field { margin-bottom: 14px; }
+  .field label { display: block; font-size: 12.5px; font-weight: 600; color: var(--muted); margin-bottom: 5px; }
+  .field input, .field textarea, .field select {
+    width: 100%; background: var(--surface-2); border: 1px solid var(--border);
+    border-radius: 9px; padding: 9px 11px;
+  }
+  .field input:focus, .field textarea:focus, .field select:focus {
+    outline: 2px solid var(--accent); outline-offset: -1px; border-color: transparent;
+  }
+  .field textarea { resize: vertical; min-height: 76px; }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+  .msg { font-size: 13px; margin: 0 0 12px; display: none; }
+  .msg.show { display: block; }
+  .msg.error { color: var(--danger); }
+  .msg.ok { color: var(--done); }
+  .msg.info { color: var(--muted); }
+
+  .banner {
+    background: var(--pending-soft); color: var(--pending);
+    border: 1px solid var(--pending); border-radius: 10px;
+    padding: 9px 13px; font-size: 12.5px; margin-bottom: 14px;
+  }
+  .banner b { font-weight: 700; }
+
+  /* ============ app shell ============ */
+  .app { max-width: 880px; margin: 0 auto; padding: 28px 20px 80px; }
+  header.top { display: flex; align-items: center; gap: 12px; margin-bottom: 22px; flex-wrap: wrap; }
+  .brand { display: flex; align-items: center; gap: 10px; margin-right: auto; }
+  .logo {
+    width: 34px; height: 34px; border-radius: 10px; flex: none;
+    background: var(--accent); color: #fff; display: grid; place-items: center;
+  }
+  .brand h1 { font-size: 18px; margin: 0; letter-spacing: -.2px; }
+  .brand p { margin: 0; font-size: 12px; color: var(--muted); }
+  .who {
+    font-size: 13px; color: var(--muted); max-width: 180px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+
+  /* ============ stats / toolbar ============ */
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; }
+  .stat {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 13px 16px;
+  }
+  .stat .n { font-size: 24px; font-weight: 700; line-height: 1.2; }
+  .stat .l { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+  .stat.done .n { color: var(--done); }
+  .stat.pending .n { color: var(--pending); }
+
+  .toolbar { display: flex; gap: 10px; align-items: center; margin-bottom: 16px; flex-wrap: wrap; }
+  .tabs { display: flex; gap: 3px; background: var(--surface-2); padding: 3px; border-radius: 10px; }
+  .tab {
+    border: 0; background: transparent; color: var(--muted);
+    padding: 7px 13px; border-radius: 8px; font-size: 13.5px; font-weight: 550;
+  }
+  .tab .count { opacity: .7; font-variant-numeric: tabular-nums; margin-left: 2px; }
+  .tab[aria-selected="true"] { background: var(--surface); color: var(--text); box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+  .search { position: relative; flex: 1; min-width: 180px; }
+  .search svg { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; color: var(--muted); }
+  .search input {
+    width: 100%; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 9px; padding: 8px 12px 8px 33px;
+  }
+  .search input:focus { outline: 2px solid var(--accent); outline-offset: -1px; border-color: transparent; }
+
+  /* ============ list ============ */
+  .list { display: flex; flex-direction: column; gap: 9px; }
+  .issue {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 13px 15px; display: flex; gap: 13px; box-shadow: var(--shadow);
+  }
+  .issue.is-done { background: color-mix(in srgb, var(--surface) 88%, var(--done-soft)); }
+  .check {
+    flex: none; width: 21px; height: 21px; margin-top: 1px; border-radius: 6px;
+    border: 1.5px solid var(--border); background: transparent;
+    display: grid; place-items: center; transition: background .15s, border-color .15s;
+  }
+  .check svg { width: 14px; height: 14px; color: #fff; opacity: 0; }
+  .check:hover { border-color: var(--done); }
+  .check[aria-pressed="true"] { background: var(--done); border-color: var(--done); }
+  .check[aria-pressed="true"] svg { opacity: 1; }
+  .body { flex: 1; min-width: 0; }
+  .title { font-weight: 600; word-break: break-word; }
+  .is-done .title { text-decoration: line-through; color: var(--muted); }
+  .desc { color: var(--muted); font-size: 13.5px; margin-top: 3px; white-space: pre-wrap; word-break: break-word; }
+  .meta { display: flex; align-items: center; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+  .pill {
+    font-size: 11.5px; font-weight: 600; padding: 2px 8px; border-radius: 999px;
+    border: 1px solid transparent; text-transform: capitalize;
+  }
+  .pill.pending { background: var(--pending-soft); color: var(--pending); }
+  .pill.done { background: var(--done-soft); color: var(--done); }
+  .pill.high { color: var(--high); border-color: var(--high); }
+  .pill.medium { color: var(--medium); border-color: var(--medium); }
+  .pill.low { color: var(--low); border-color: var(--low); }
+  .when { font-size: 12px; color: var(--muted); }
+  .actions { display: flex; gap: 2px; flex: none; align-self: flex-start; }
+
+  .empty {
+    text-align: center; padding: 56px 20px; color: var(--muted);
+    border: 1px dashed var(--border); border-radius: var(--radius);
+  }
+  .empty svg { width: 36px; height: 36px; opacity: .45; margin-bottom: 8px; }
+  .empty p { margin: 0 0 14px; }
+
+  /* ============ modal ============ */
+  .backdrop {
+    position: fixed; inset: 0; background: rgba(10, 12, 18, .5);
+    display: none; align-items: flex-start; justify-content: center;
+    padding: 40px 16px; z-index: 50; overflow-y: auto; backdrop-filter: blur(2px);
+  }
+  .backdrop.open { display: flex; animation: fade .15s ease; }
+  @keyframes fade { from { opacity: 0; } }
+  .modal {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+    width: 100%; max-width: 520px; padding: 22px; box-shadow: var(--shadow);
+    animation: pop .16s ease;
+  }
+  @keyframes pop { from { transform: translateY(-8px) scale(.98); opacity: 0; } }
+  .modal h2 { margin: 0 0 16px; font-size: 17px; }
+  .modal .foot { display: flex; justify-content: flex-end; gap: 9px; margin-top: 20px; }
+
+  /* ============ toasts ============ */
+  .toasts { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 60; display: flex; flex-direction: column; gap: 8px; }
+  .toast {
+    background: var(--text); color: var(--bg); padding: 9px 16px; border-radius: 999px;
+    font-size: 13.5px; font-weight: 550; box-shadow: var(--shadow);
+    animation: pop .18s ease; max-width: 92vw;
+  }
+  .toast.out { opacity: 0; transition: opacity .3s; }
+
+  @media (max-width: 560px) {
+    .stats { gap: 8px; }
+    .stat { padding: 10px 11px; }
+    .stat .n { font-size: 20px; }
+    .row { grid-template-columns: 1fr; }
+    .brand p { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ===================== AUTH SCREENS ===================== -->
+<div id="authView" class="auth-wrap" hidden>
+  <div class="auth-card">
+    <div class="auth-brand">
+      <div class="logo" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="19" height="19">
+          <path d="M9 11l3 3L22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+        </svg>
+      </div>
+      <div>
+        <h1>Mini Issue Tracker</h1>
+        <p>Sign in to your issues</p>
+      </div>
+    </div>
+
+    <!-- sign in -->
+    <section id="pane-login">
+      <h2>Sign in</h2>
+      <p class="sub">Welcome back.</p>
+      <div class="msg error" id="loginErr"></div>
+      <form id="loginForm" novalidate>
+        <div class="field">
+          <label for="loginEmail">Email</label>
+          <input id="loginEmail" type="email" autocomplete="email" placeholder="you@example.com" required />
+        </div>
+        <div class="field">
+          <label for="loginPassword">Password</label>
+          <input id="loginPassword" type="password" autocomplete="current-password" placeholder="Your password" required />
+        </div>
+        <button class="btn primary block" type="submit" id="loginBtn">Sign in</button>
+      </form>
+      <div class="auth-foot">
+        <button class="linkbtn" type="button" id="toForgot">Forgot password?</button>
+        <button class="linkbtn" type="button" id="toRegister">Create account</button>
+      </div>
+    </section>
+
+    <!-- register -->
+    <section id="pane-register" hidden>
+      <h2>Create account</h2>
+      <p class="sub">Takes a few seconds.</p>
+      <div class="msg error" id="regErr"></div>
+      <form id="registerForm" novalidate>
+        <div class="field">
+          <label for="regEmail">Email</label>
+          <input id="regEmail" type="email" autocomplete="email" placeholder="you@example.com" required />
+        </div>
+        <div class="row">
+          <div class="field">
+            <label for="regPassword">Password</label>
+            <input id="regPassword" type="password" autocomplete="new-password" placeholder="6+ characters" required />
+          </div>
+          <div class="field">
+            <label for="regConfirm">Confirm password</label>
+            <input id="regConfirm" type="password" autocomplete="new-password" placeholder="Repeat it" required />
+          </div>
+        </div>
+        <button class="btn primary block" type="submit" id="regBtn">Create account</button>
+      </form>
+      <div class="auth-foot single">
+        <button class="linkbtn" type="button" id="toLoginFromReg">← Back to sign in</button>
+      </div>
+    </section>
+
+    <!-- forgot password -->
+    <section id="pane-forgot" hidden>
+      <h2>Reset your password</h2>
+      <p class="sub">We'll email you a link to choose a new password.</p>
+      <div class="msg error" id="forgotErr"></div>
+      <form id="forgotForm" novalidate>
+        <div class="field">
+          <label for="forgotEmail">Email</label>
+          <input id="forgotEmail" type="email" autocomplete="email" placeholder="you@example.com" required />
+        </div>
+        <button class="btn primary block" type="submit" id="forgotBtn">Send reset link</button>
+      </form>
+      <div class="auth-foot single">
+        <button class="linkbtn" type="button" id="toLoginFromForgot">← Back to sign in</button>
+      </div>
+    </section>
+
+    <!-- "check your email" confirmation -->
+    <section id="pane-sent" hidden>
+      <h2 id="sentTitle">Check your email</h2>
+      <p class="sub" id="sentBody"></p>
+      <div class="msg ok show" id="sentNote"></div>
+      <div id="sentDemoWrap" hidden>
+        <button class="btn primary block" type="button" id="sentDemoBtn">Continue: set a new password</button>
+      </div>
+      <div class="auth-foot center">
+        <button class="linkbtn" type="button" id="sentBack">← Back to sign in</button>
+      </div>
+    </section>
+  </div>
+</div>
+
+<!-- ===================== RESET PASSWORD SCREEN ===================== -->
+<div id="resetView" class="auth-wrap" hidden>
+  <div class="auth-card">
+    <div class="auth-brand">
+      <div class="logo" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="19" height="19">
+          <path d="M12 15v2m-6 4h12a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2z" /><path d="M8 11V7a4 4 0 1 1 8 0v4" />
+        </svg>
+      </div>
+      <div>
+        <h1>Set a new password</h1>
+        <p>You followed a reset link</p>
+      </div>
+    </div>
+    <div class="msg error" id="resetErr"></div>
+    <form id="resetForm" novalidate>
+      <div class="field">
+        <label for="resetPassword">New password</label>
+        <input id="resetPassword" type="password" autocomplete="new-password" placeholder="6+ characters" required />
+      </div>
+      <div class="field">
+        <label for="resetConfirm">Confirm new password</label>
+        <input id="resetConfirm" type="password" autocomplete="new-password" placeholder="Repeat it" required />
+      </div>
+      <button class="btn primary block" type="submit" id="resetBtn">Save new password</button>
+    </form>
+    <div class="auth-foot single">
+      <button class="linkbtn" type="button" id="resetCancel">← Back to sign in</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== THE APP ===================== -->
+<div id="appView" class="app" hidden>
+  <div class="banner" id="demoBanner" hidden>
+    <b>Demo mode.</b> Supabase isn't configured yet, so accounts and issues are
+    stored only in this browser. Configure Supabase to switch to
+    real accounts with email password resets.
+  </div>
+
+  <header class="top">
+    <div class="brand">
+      <div class="logo" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="19" height="19">
+          <path d="M9 11l3 3L22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+        </svg>
+      </div>
+      <div>
+        <h1>Mini Issue Tracker</h1>
+        <p>Track what's done and what's pending</p>
+      </div>
+    </div>
+    <span class="who" id="whoami" title=""></span>
+    <button class="btn ghost" id="signOutBtn" title="Sign out">Sign out</button>
+    <button class="btn primary" id="newBtn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14" /></svg>
+      New issue
+    </button>
+  </header>
+
+  <section class="stats" aria-label="Summary">
+    <div class="stat"><div class="n" id="statTotal">0</div><div class="l">Total</div></div>
+    <div class="stat pending"><div class="n" id="statPending">0</div><div class="l">Pending</div></div>
+    <div class="stat done"><div class="n" id="statDone">0</div><div class="l">Done</div></div>
+  </section>
+
+  <section class="toolbar">
+    <div class="tabs" role="tablist" aria-label="Filter issues">
+      <button class="tab" role="tab" data-filter="all">All <span class="count" id="cAll">0</span></button>
+      <button class="tab" role="tab" data-filter="pending">Pending <span class="count" id="cPending">0</span></button>
+      <button class="tab" role="tab" data-filter="done">Done <span class="count" id="cDone">0</span></button>
+    </div>
+    <div class="search">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3" /></svg>
+      <input type="search" id="search" placeholder="Search issues…" aria-label="Search issues" />
+    </div>
+  </section>
+
+  <main id="list" class="list"></main>
+</div>
+
+<!-- create / edit dialog -->
+<div class="backdrop" id="backdrop" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+  <div class="modal">
+    <h2 id="modalTitle">New issue</h2>
+    <form id="issueForm" novalidate>
+      <div class="field">
+        <label for="fieldTitle">Title</label>
+        <input id="fieldTitle" maxlength="140" placeholder="Short summary of the issue" autocomplete="off" />
+      </div>
+      <div class="msg error" id="formErr">Please enter a title.</div>
+      <div class="field">
+        <label for="fieldDesc">Description</label>
+        <textarea id="fieldDesc" maxlength="2000" placeholder="Optional details, steps to reproduce, notes…"></textarea>
+      </div>
+      <div class="row">
+        <div class="field">
+          <label for="fieldStatus">Status</label>
+          <select id="fieldStatus">
+            <option value="pending">Pending</option>
+            <option value="done">Done</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="fieldPriority">Priority</label>
+          <select id="fieldPriority">
+            <option value="low">Low</option>
+            <option value="medium" selected>Medium</option>
+            <option value="high">High</option>
+          </select>
+        </div>
+      </div>
+      <div class="foot">
+        <button type="button" class="btn" id="cancelBtn">Cancel</button>
+        <button type="submit" class="btn primary" id="saveBtn" data-mode="create">Create issue</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="toasts" id="toasts" aria-live="polite"></div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ==================================================================
+     STEP 1 — PASTE YOUR SUPABASE VALUES HERE
+     ------------------------------------------------------------------
+     Leave both empty and the app runs in "demo mode" (localStorage only).
+     Fill them in and it becomes real: proper accounts + emailed resets.
+     Full instructions: create a free Supabase project, then paste
+     your Project URL and public key here. Both are safe to make public.
+
+     The anon key is SAFE to put in this file. It is a public key by
+     design — Supabase protects your data with Row Level Security, not
+     with secrecy of this key.
+     ================================================================== */
+  var SUPABASE_URL      = "";  // e.g. "https://abcdefghijklm.supabase.co"
+  var SUPABASE_ANON_KEY = "";  // the long "anon public" key
+
+  /* ==================================================================
+     Small helpers
+     ================================================================== */
+  function el(id) { return document.getElementById(id); }
+
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+
+  function timeAgo(ts) {
+    var s = Math.floor((Date.now() - ts) / 1000);
+    if (s < 60) return "just now";
+    var m = Math.floor(s / 60); if (m < 60) return m + "m ago";
+    var h = Math.floor(m / 60); if (h < 24) return h + "h ago";
+    var d = Math.floor(h / 24); if (d < 30) return d + "d ago";
+    return new Date(ts).toLocaleDateString();
+  }
+
+  function toast(msg) {
+    var t = document.createElement("div");
+    t.className = "toast";
+    t.textContent = msg;
+    el("toasts").appendChild(t);
+    setTimeout(function () { t.classList.add("out"); }, 2400);
+    setTimeout(function () { t.remove(); }, 2900);
+  }
+
+  function showMsg(node, text, kind) {
+    node.textContent = text || "";
+    node.className = "msg " + (kind || "error") + (text ? " show" : "");
+  }
+
+  function busy(btn, isBusy, label) {
+    if (isBusy) {
+      btn.dataset.label = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = label || "Please wait…";
+    } else {
+      btn.disabled = false;
+      if (btn.dataset.label) btn.textContent = btn.dataset.label;
+    }
+  }
+
+  /* Readable messages for the Supabase errors users actually hit. */
+  function friendly(message) {
+    var m = String(message || "");
+    if (/Invalid login credentials/i.test(m)) return "Incorrect email or password.";
+    if (/Email not confirmed/i.test(m)) return "Please confirm your email first — check your inbox.";
+    if (/User already registered/i.test(m)) return "An account with that email already exists.";
+    if (/Password should be at least/i.test(m)) return "Password must be at least 6 characters.";
+    if (/rate limit|Too many/i.test(m)) return "Too many attempts. Please wait a minute and try again.";
+    if (/valid email/i.test(m)) return "Please enter a valid email address.";
+    return m || "Something went wrong. Please try again.";
+  }
+
+  function redirectTo() {
+    // Where Supabase sends the user after they click the reset link.
+    // Strip "index.html" so this matches the Site URL you configured.
+    return (window.location.origin + window.location.pathname).replace(/index\.html$/, "");
+  }
+
+  /* ==================================================================
+     Backend adapter
+     ------------------------------------------------------------------
+     Two implementations behind one interface, so the UI below never
+     has to know whether it's talking to Supabase or to localStorage.
+     ================================================================== */
+  var cloudEnabled = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY && window.supabase);
+  var sb = cloudEnabled ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+
+  /* ---------- demo backend (localStorage) ---------- */
+  var demoBackend = (function () {
+    var USERS = "mit.demo.users";
+    var SESSION = "mit.demo.session";
+    var ISSUES = "mit.demo.issues.";
+
+    function read(key, fallback) {
+      try {
+        var raw = localStorage.getItem(key);
+        return raw ? JSON.parse(raw) : fallback;
+      } catch (e) { return fallback; }
+    }
+    function write(key, value) {
+      try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {}
+    }
+
+    function hash(text) {
+      // SHA-256 when available; plain fallback otherwise. Demo only.
+      if (window.crypto && crypto.subtle && window.TextEncoder) {
+        return crypto.subtle.digest("SHA-256", new TextEncoder().encode(text)).then(function (buf) {
+          return Array.prototype.map.call(new Uint8Array(buf), function (b) {
+            return ("0" + b.toString(16)).slice(-2);
+          }).join("");
+        });
+      }
+      var h = 5381;
+      for (var i = 0; i < text.length; i++) h = ((h << 5) + h + text.charCodeAt(i)) | 0;
+      return Promise.resolve("plain:" + (h >>> 0).toString(16));
+    }
+
+    function users() { return read(USERS, {}); }
+    function currentEmail() { return read(SESSION, null); }
+    function myIssues() { return read(ISSUES + currentEmail(), []); }
+
+    return {
+      mode: "demo",
+
+      getSession: function () {
+        var email = currentEmail();
+        return Promise.resolve(email ? { user: { email: email } } : null);
+      },
+
+      signUp: function (email, password) {
+        var all = users();
+        if (all[email]) return Promise.reject(new Error("An account with that email already exists."));
+        return hash(password).then(function (h) {
+          all[email] = h;
+          write(USERS, all);
+          write(SESSION, email);
+          return { needsConfirm: false };
+        });
+      },
+
+      signIn: function (email, password) {
+        var all = users();
+        if (!all[email]) return Promise.reject(new Error("No account found for that email. Create one instead."));
+        return hash(password).then(function (h) {
+          if (all[email] !== h) return Promise.reject(new Error("Incorrect email or password."));
+          write(SESSION, email);
+          return { user: { email: email } };
+        });
+      },
+
+      signOut: function () {
+        try { localStorage.removeItem(SESSION); } catch (e) {}
+        return Promise.resolve();
+      },
+
+      sendReset: function () {
+        // The browser cannot send email, so demo mode hands the user a
+        // shortcut to the reset screen instead.
+        return Promise.resolve({ demo: true });
+      },
+
+      updatePassword: function (email, password) {
+        // During a reset the user is signed OUT, so `currentEmail()` is empty.
+        // The email therefore has to come from the reset form.
+        var key = email || currentEmail();
+        var all = users();
+        if (!key || !all[key]) {
+          return Promise.reject(new Error("No account found for that email."));
+        }
+        return hash(password).then(function (h) {
+          all[key] = h;
+          write(USERS, all);
+        });
+      },
+
+      listIssues: function () {
+        return Promise.resolve(myIssues());
+      },
+
+      createIssue: function (issue) {
+        var list = myIssues();
+        var row = {
+          id: "i_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
+          title: issue.title,
+          description: issue.description,
+          status: issue.status,
+          priority: issue.priority,
+          createdAt: Date.now(),
+          updatedAt: Date.now()
+        };
+        list.push(row);
+        write(ISSUES + currentEmail(), list);
+        return Promise.resolve(row);
+      },
+
+      updateIssue: function (id, patch) {
+        var list = myIssues();
+        for (var i = 0; i < list.length; i++) {
+          if (list[i].id === id) {
+            for (var k in patch) if (Object.prototype.hasOwnProperty.call(patch, k)) list[i][k] = patch[k];
+            list[i].updatedAt = Date.now();
+          }
+        }
+        write(ISSUES + currentEmail(), list);
+        return Promise.resolve();
+      },
+
+      deleteIssue: function (id) {
+        write(ISSUES + currentEmail(), myIssues().filter(function (x) { return x.id !== id; }));
+        return Promise.resolve();
+      },
+
+      onAuthChange: function () { /* demo mode has no background events */ }
+    };
+  })();
+
+  /* ---------- Supabase backend ---------- */
+  var cloudBackend = {
+    mode: "supabase",
+
+    getSession: function () {
+      return sb.auth.getSession().then(function (res) {
+        return res.data ? res.data.session : null;
+      });
+    },
+
+    signUp: function (email, password) {
+      return sb.auth.signUp({ email: email, password: password }).then(function (res) {
+        if (res.error) throw res.error;
+        // When email confirmation is ON, there is no session yet.
+        return { needsConfirm: !res.data.session };
+      });
+    },
+
+    signIn: function (email, password) {
+      return sb.auth.signInWithPassword({ email: email, password: password }).then(function (res) {
+        if (res.error) throw res.error;
+        return { user: res.data.user };
+      });
+    },
+
+    signOut: function () {
+      return sb.auth.signOut().then(function (res) {
+        if (res.error) throw res.error;
+      });
+    },
+
+    sendReset: function (email) {
+      return sb.auth.resetPasswordForEmail(email, { redirectTo: redirectTo() }).then(function (res) {
+        if (res.error) throw res.error;
+        return { demo: false };
+      });
+    },
+
+    updatePassword: function (email, password) {
+      // Supabase knows which user this is from the recovery session.
+      return sb.auth.updateUser({ password: password }).then(function (res) {
+        if (res.error) throw res.error;
+      });
+    },
+
+    listIssues: function () {
+      return sb.from("issues").select("*").order("updated_at", { ascending: false }).then(function (res) {
+        if (res.error) throw res.error;
+        return (res.data || []).map(function (r) {
+          return {
+            id: r.id,
+            title: r.title,
+            description: r.description || "",
+            status: r.status,
+            priority: r.priority,
+            createdAt: new Date(r.created_at).getTime(),
+            updatedAt: new Date(r.updated_at).getTime()
+          };
+        });
+      });
+    },
+
+    createIssue: function (issue) {
+      return sb.from("issues").insert({
+        title: issue.title,
+        description: issue.description,
+        status: issue.status,
+        priority: issue.priority
+      }).select().then(function (res) {
+        if (res.error) throw res.error;
+        return res.data;
+      });
+    },
+
+    updateIssue: function (id, patch) {
+      var payload = { updated_at: new Date().toISOString() };
+      for (var k in patch) if (Object.prototype.hasOwnProperty.call(patch, k)) payload[k] = patch[k];
+      return sb.from("issues").update(payload).eq("id", id).then(function (res) {
+        if (res.error) throw res.error;
+      });
+    },
+
+    deleteIssue: function (id) {
+      return sb.from("issues").delete().eq("id", id).then(function (res) {
+        if (res.error) throw res.error;
+      });
+    },
+
+    onAuthChange: function (handler) {
+      sb.auth.onAuthStateChange(handler);
+    }
+  };
+
+  var api = cloudEnabled ? cloudBackend : demoBackend;
+
+  /* ==================================================================
+     App state
+     ================================================================== */
+  var issues = [];
+  var filter = "all";
+  var query = "";
+  var editingId = null;
+  var inRecovery = false;   // true while the user is setting a new password
+  var userEmail = "";
+  var resetEmail = "";      // which account a password reset applies to
+
+  /* ==================================================================
+     Screen switching
+     ================================================================== */
+  function hideAll() {
+    el("authView").hidden = true;
+    el("resetView").hidden = true;
+    el("appView").hidden = true;
+  }
+
+  function showPane(name) {
+    ["pane-login", "pane-register", "pane-forgot", "pane-sent"].forEach(function (id) {
+      el(id).hidden = id !== "pane-" + name;
+    });
+  }
+
+  function showAuth(pane) {
+    hideAll();
+    el("authView").hidden = false;
+    showPane(pane || "login");
+    el("loginPassword").value = "";
+    showMsg(el("loginErr"), "");   // don't leave a stale error on screen
+  }
+
+  function showReset() {
+    inRecovery = true;
+    hideAll();
+    el("resetView").hidden = false;
+    el("resetPassword").value = "";
+    el("resetConfirm").value = "";
+    el("resetPassword").focus();
+  }
+
+  function showApp() {
+    if (inRecovery) return;
+    hideAll();
+    el("appView").hidden = false;
+    el("whoami").textContent = userEmail;
+    el("whoami").title = userEmail;
+    el("demoBanner").hidden = api.mode !== "demo";
+
+    // Clear any rows left over from a previous user BEFORE the new ones
+    // load, so nobody ever sees someone else's issues for a moment.
+    issues = [];
+    filter = "all";
+    query = "";
+    el("search").value = "";
+    render();
+
+    refresh();
+  }
+
+  /* ==================================================================
+     Tracker: rendering
+     ================================================================== */
+  var listEl = el("list");
+  var tabs = Array.prototype.slice.call(document.querySelectorAll(".tab"));
+
+  function visibleIssues() {
+    var q = query.trim().toLowerCase();
+    return issues
+      .filter(function (it) { return filter === "all" ? true : it.status === filter; })
+      .filter(function (it) {
+        if (!q) return true;
+        return (it.title + " " + (it.description || "")).toLowerCase().indexOf(q) !== -1;
+      })
+      .sort(function (a, b) {
+        if (a.status !== b.status) return a.status === "pending" ? -1 : 1;
+        return b.updatedAt - a.updatedAt;
+      });
+  }
+
+  function updateStats() {
+    var total = issues.length;
+    var done = issues.filter(function (i) { return i.status === "done"; }).length;
+    var pending = total - done;
+
+    el("statTotal").textContent = total;
+    el("statDone").textContent = done;
+    el("statPending").textContent = pending;
+    el("cAll").textContent = total;
+    el("cPending").textContent = pending;
+    el("cDone").textContent = done;
+
+    tabs.forEach(function (t) {
+      t.setAttribute("aria-selected", String(t.dataset.filter === filter));
+    });
+  }
+
+  function render() {
+    updateStats();
+    var items = visibleIssues();
+    listEl.innerHTML = items.length ? items.map(card).join("") : emptyState(issues.length);
+  }
+
+  function card(it) {
+    var isDone = it.status === "done";
+    return '<article class="issue' + (isDone ? " is-done" : "") + '" data-id="' + esc(it.id) + '">' +
+      '<button class="check" data-action="toggle" aria-pressed="' + isDone + '" ' +
+        'aria-label="Mark as ' + (isDone ? "pending" : "done") + '" title="Toggle done">' +
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" ' +
+        'stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg>' +
+      '</button>' +
+      '<div class="body">' +
+        '<div class="title">' + esc(it.title) + '</div>' +
+        (it.description ? '<div class="desc">' + esc(it.description) + '</div>' : "") +
+        '<div class="meta">' +
+          '<span class="pill ' + esc(it.status) + '">' + esc(it.status) + '</span>' +
+          '<span class="pill ' + esc(it.priority) + '">' + esc(it.priority) + '</span>' +
+          '<span class="when">' + timeAgo(it.updatedAt || it.createdAt) + '</span>' +
+        '</div>' +
+      '</div>' +
+      '<div class="actions">' +
+        '<button class="btn ghost icon" data-action="edit" title="Edit issue" aria-label="Edit issue">' +
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" ' +
+          'stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/>' +
+          '<path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>' +
+        '</button>' +
+        '<button class="btn ghost icon danger" data-action="delete" title="Delete issue" aria-label="Delete issue">' +
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" ' +
+          'stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6"/></svg>' +
+        '</button>' +
+      '</div>' +
+    '</article>';
+  }
+
+  function emptyState(total) {
+    var msg = total === 0
+      ? "No issues yet. Create your first one to get started."
+      : "No issues match this view.";
+    var btn = total === 0
+      ? '<button class="btn primary" data-action="new">Create issue</button>'
+      : '<button class="btn" data-action="clear-filters">Clear filters</button>';
+    return '<div class="empty">' +
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">' +
+      '<rect x="3" y="4" width="18" height="17" rx="2"/><path d="M8 2v4M16 2v4M3 10h18M9 15l2 2 4-4"/></svg>' +
+      '<p>' + esc(msg) + '</p>' + btn + '</div>';
+  }
+
+  /* Load the current user's issues and redraw. */
+  function refresh() {
+    return api.listIssues().then(function (rows) {
+      issues = rows || [];
+      render();
+    }).catch(function (e) {
+      toast("Could not load issues: " + friendly(e.message));
+    });
+  }
+
+  function byId(id) {
+    for (var i = 0; i < issues.length; i++) if (issues[i].id === id) return issues[i];
+    return null;
+  }
+
+  /* Mutate on the server, then reload so the UI matches the database. */
+  function mutate(promise, okMsg) {
+    return promise.then(function () {
+      return refresh();
+    }).then(function () {
+      if (okMsg) toast(okMsg);
+    }).catch(function (e) {
+      toast("Error: " + friendly(e.message));
+      return refresh();
+    });
+  }
+
+  /* ==================================================================
+     List interactions
+     ================================================================== */
+  listEl.addEventListener("click", function (e) {
+    var actionEl = e.target.closest("[data-action]");
+    if (!actionEl) return;
+    var action = actionEl.dataset.action;
+
+    if (action === "new") { openModal(null); return; }
+    if (action === "clear-filters") {
+      filter = "all";
+      query = "";
+      el("search").value = "";
+      render();
+      return;
+    }
+
+    var row = e.target.closest(".issue");
+    if (!row) return;
+    var it = byId(row.dataset.id);
+    if (!it) return;
+
+    if (action === "toggle") {
+      var next = it.status === "done" ? "pending" : "done";
+      mutate(api.updateIssue(it.id, { status: next }),
+             next === "done" ? "Marked as done" : "Moved back to pending");
+    } else if (action === "edit") {
+      openModal(it);
+    } else if (action === "delete") {
+      if (confirm('Delete "' + it.title + '"?\nThis cannot be undone.')) {
+        mutate(api.deleteIssue(it.id), "Issue deleted");
+      }
+    }
+  });
+
+  tabs.forEach(function (t) {
+    t.addEventListener("click", function () {
+      filter = t.dataset.filter;
+      render();
+    });
+  });
+  el("search").addEventListener("input", function (e) {
+    query = e.target.value;
+    render();
+  });
+
+  /* ==================================================================
+     Create / edit dialog
+     ================================================================== */
+  var backdrop = el("backdrop");
+  var fTitle = el("fieldTitle");
+  var fDesc = el("fieldDesc");
+  var fStatus = el("fieldStatus");
+  var fPriority = el("fieldPriority");
+  var formErr = el("formErr");
+
+  function openModal(issue) {
+    editingId = issue ? issue.id : null;
+    el("modalTitle").textContent = issue ? "Edit issue" : "New issue";
+    el("saveBtn").textContent = issue ? "Save changes" : "Create issue";
+    fTitle.value = issue ? issue.title : "";
+    fDesc.value = issue ? (issue.description || "") : "";
+    fStatus.value = issue ? issue.status : "pending";
+    fPriority.value = issue ? issue.priority : "medium";
+    showMsg(formErr, "");
+    backdrop.classList.add("open");
+    document.body.style.overflow = "hidden";
+    setTimeout(function () { fTitle.focus(); }, 30);
+  }
+
+  function closeModal() {
+    backdrop.classList.remove("open");
+    document.body.style.overflow = "";
+    editingId = null;
+  }
+
+  el("newBtn").addEventListener("click", function () { openModal(null); });
+  el("cancelBtn").addEventListener("click", closeModal);
+  backdrop.addEventListener("mousedown", function (e) {
+    if (e.target === backdrop) closeModal();
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && backdrop.classList.contains("open")) closeModal();
+  });
+
+  el("issueForm").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var title = fTitle.value.trim();
+    if (!title) {
+      showMsg(formErr, "Please enter a title.", "error");
+      fTitle.focus();
+      return;
+    }
+    showMsg(formErr, "");
+
+    var data = {
+      title: title,
+      description: fDesc.value.trim(),
+      status: fStatus.value,
+      priority: fPriority.value
+    };
+
+    var btn = el("saveBtn");
+    busy(btn, true, "Saving…");
+    var work = editingId
+      ? api.updateIssue(editingId, data)
+      : api.createIssue(data);
+
+    mutate(work, editingId ? "Changes saved" : "Issue created")
+      .then(function () { busy(btn, false); closeModal(); });
+  });
+
+  /* ==================================================================
+     Auth: sign in / register / forgot / reset
+     ================================================================== */
+  el("toRegister").addEventListener("click", function () {
+    showMsg(el("regErr"), "");
+    showPane("register");
+  });
+  el("toForgot").addEventListener("click", function () {
+    showMsg(el("forgotErr"), "");
+    showPane("forgot");
+  });
+  el("toLoginFromReg").addEventListener("click", function () { showAuth("login"); });
+  el("toLoginFromForgot").addEventListener("click", function () { showAuth("login"); });
+  el("sentBack").addEventListener("click", function () { showAuth("login"); });
+
+  el("loginForm").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var email = el("loginEmail").value.trim();
+    var password = el("loginPassword").value;
+    var err = el("loginErr");
+    showMsg(err, "");
+
+    if (!email || !password) { showMsg(err, "Enter your email and password."); return; }
+
+    var btn = el("loginBtn");
+    busy(btn, true, "Signing in…");
+    api.signIn(email, password).then(function () {
+      busy(btn, false);
+      userEmail = email;
+      showApp();
+      toast("Signed in");
+    }).catch(function (ex) {
+      busy(btn, false);
+      showMsg(err, friendly(ex.message));
+    });
+  });
+
+  el("registerForm").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var email = el("regEmail").value.trim();
+    var password = el("regPassword").value;
+    var confirmPw = el("regConfirm").value;
+    var err = el("regErr");
+    showMsg(err, "");
+
+    if (!email) { showMsg(err, "Enter your email."); return; }
+    if (password.length < 6) { showMsg(err, "Password must be at least 6 characters."); return; }
+    if (password !== confirmPw) { showMsg(err, "The two passwords do not match."); return; }
+
+    var btn = el("regBtn");
+    busy(btn, true, "Creating…");
+    api.signUp(email, password).then(function (res) {
+      busy(btn, false);
+      el("loginEmail").value = email;
+      if (res.needsConfirm) {
+        el("sentTitle").textContent = "Confirm your email";
+        el("sentBody").textContent = "We sent a confirmation link to " + email +
+          ". Click it, then come back and sign in.";
+        showMsg(el("sentNote"), "Didn't get it? Check your spam folder.", "info");
+        el("sentDemoWrap").hidden = true;
+        showPane("sent");
+      } else {
+        userEmail = email;
+        showApp();
+        toast("Account created");
+      }
+    }).catch(function (ex) {
+      busy(btn, false);
+      showMsg(err, friendly(ex.message));
+    });
+  });
+
+  el("forgotForm").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var email = el("forgotEmail").value.trim();
+    var err = el("forgotErr");
+    showMsg(err, "");
+
+    if (!email) { showMsg(err, "Enter your email."); return; }
+
+    var btn = el("forgotBtn");
+    busy(btn, true, "Sending…");
+    api.sendReset(email).then(function (res) {
+      busy(btn, false);
+      if (res && res.demo) {
+        el("sentTitle").textContent = "Demo mode can't send email";
+        el("sentBody").textContent =
+          "Sending a reset link needs a mail server, which a plain web page doesn't have. " +
+          "Configure Supabase and this becomes a real email. " +
+          "For now you can go straight to the reset screen.";
+        showMsg(el("sentNote"), "");
+        el("sentDemoWrap").hidden = false;
+      } else {
+        el("sentTitle").textContent = "Check your email";
+        el("sentBody").textContent = "If an account exists for " + email +
+          ", we've sent a link to reset your password. The link expires shortly, so use it soon.";
+        showMsg(el("sentNote"), "Nothing arrived? Check spam, or try again in a minute.", "info");
+        el("sentDemoWrap").hidden = true;
+      }
+      showPane("sent");
+    }).catch(function (ex) {
+      busy(btn, false);
+      showMsg(err, friendly(ex.message));
+    });
+  });
+
+  el("sentDemoBtn").addEventListener("click", function () {
+    resetEmail = el("forgotEmail").value.trim() || userEmail;
+    showReset();
+  });
+
+  el("resetForm").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var password = el("resetPassword").value;
+    var confirmPw = el("resetConfirm").value;
+    var err = el("resetErr");
+    showMsg(err, "");
+
+    if (password.length < 6) { showMsg(err, "Password must be at least 6 characters."); return; }
+    if (password !== confirmPw) { showMsg(err, "The two passwords do not match."); return; }
+
+    var btn = el("resetBtn");
+    busy(btn, true, "Saving…");
+    api.updatePassword(resetEmail, password).then(function () {
+      busy(btn, false);
+      inRecovery = false;
+      el("loginEmail").value = resetEmail || el("loginEmail").value;
+      toast("Password updated");
+      showAuth("login");
+    }).catch(function (ex) {
+      busy(btn, false);
+      showMsg(err, friendly(ex.message));
+    });
+  });
+
+  el("resetCancel").addEventListener("click", function () {
+    inRecovery = false;
+    showAuth("login");
+  });
+
+  el("signOutBtn").addEventListener("click", function () {
+    var btn = el("signOutBtn");
+    busy(btn, true, "Signing out…");
+    api.signOut().then(function () {
+      busy(btn, false);
+      issues = [];
+      query = "";
+      filter = "all";
+      el("search").value = "";
+      userEmail = "";
+      render();
+      showAuth("login");
+      toast("Signed out");
+    }).catch(function (ex) {
+      busy(btn, false);
+      toast("Error: " + friendly(ex.message));
+    });
+  });
+
+
+  /* ==================================================================
+     Boot
+     ================================================================== */
+  // A recovery link arrives as "#...type=recovery". Catch it before we
+  // decide which screen to show, so the app never flashes in between.
+  if (window.location.hash.indexOf("type=recovery") !== -1) inRecovery = true;
+
+  api.onAuthChange(function (event, session) {
+    if (event === "PASSWORD_RECOVERY") { showReset(); return; }
+    if (event === "SIGNED_OUT") { inRecovery = false; showAuth("login"); return; }
+    if (event === "SIGNED_IN" && !inRecovery && session) {
+      userEmail = session.user ? session.user.email : userEmail;
+      showApp();
+    }
+  });
+
+  if (inRecovery) {
+    showReset();
+  } else {
+    api.getSession().then(function (session) {
+      if (session && session.user) {
+        userEmail = session.user.email || "";
+        showApp();
+      } else {
+        showAuth("login");
+      }
+    });
+  }
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+# Never upload local secrets or machine state to Vercel
+.env
+.env.*
+.vercel
+node_modules
+*.log
+
+# Supabase CLI local state
+supabase/.branches
+supabase/.temp
+
+# OS noise
+.DS_Store
+Thumbs.db

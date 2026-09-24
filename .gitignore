@@ -1,15 +1,19 @@
-# Local state / editor files
+# Local Supabase secrets (never commit real keys)
+.env
+.env.*
+
+# Supabase CLI local state
+supabase/.branches
+supabase/.temp
+
+# Vercel CLI local state
+.vercel
+
+# Dependencies (not used by this project, but never commit them)
+node_modules
+
+# Editor / OS noise
 .DS_Store
 Thumbs.db
-*.local
 *.log
-
-# Vercel CLI
-.vercel
-
-# Node (only needed if you add a build step later)
-node_modules/
-npm-debug.log*
-
-.vercel
 .env*
