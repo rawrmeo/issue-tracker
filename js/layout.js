@@ -126,17 +126,39 @@
            'the browser menu and choose "Install app".';
   }
 
+  /* Clicking before the browser has fired beforeinstallprompt used to show the
+     "look in your address bar" message immediately - even though the prompt was
+     about to arrive a moment later. So wait briefly for it first. */
+  function waitForInstallPrompt(timeoutMs) {
+    return new Promise(function (resolve) {
+      if (installPrompt) return resolve(installPrompt);
+
+      var settled = false;
+      function finish(value) {
+        if (settled) return;
+        settled = true;
+        resolve(value);
+      }
+
+      window.addEventListener('beforeinstallprompt', function () { finish(installPrompt); });
+      setTimeout(function () { finish(installPrompt); }, timeoutMs || 2000);
+    });
+  }
+
   function doInstall() {
-    if (installPrompt) {
-      installPrompt.prompt();
-      installPrompt.userChoice.then(function (choice) {
+    // A brief note, so the short wait does not look like nothing happened.
+    if (!installPrompt && ET.toast) ET.toast('Looking for the install option…');
+
+    waitForInstallPrompt(2000).then(function (prompt) {
+      if (!prompt) { window.alert(installHelp()); return; }
+
+      prompt.prompt();
+      prompt.userChoice.then(function (choice) {
         if (choice && choice.outcome === 'accepted' && ET.toast) ET.toast('Installing…');
         installPrompt = null;
         refreshInstall();
       });
-      return;
-    }
-    window.alert(installHelp());
+    });
   }
 
   window.addEventListener('beforeinstallprompt', function (e) {
