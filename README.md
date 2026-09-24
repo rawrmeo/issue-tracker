@@ -57,7 +57,8 @@ Only admins can change the status of an issue
 | `styles.css` | Styling and theme |
 | `app.js` | UI, Supabase client calls, permissions for the UI |
 | `supabase-config.js` | **Your** project URL + anon key (you fill this in) |
-| `supabase/schema.sql` | Tables, RLS policies, triggers — run once |
+| `supabase/schema.sql` | Tables, RLS policies, triggers - run once |
+| `ARCHITECTURE.md` | System architecture + process-flow diagrams (Mermaid) |
 | `SETUP.md` | Step-by-step database setup |
 | `vercel.json` | Vercel config (clean URLs, security headers) |
 | `deploy.ps1` | Windows helper: commit + push in one command |
