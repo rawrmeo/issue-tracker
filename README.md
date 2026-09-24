@@ -204,6 +204,20 @@ Things to keep in mind:
 
 ---
 
+## Install it on your phone
+
+The app is a **PWA**, so it can be installed straight from the browser and then
+opens full screen with its own icon:
+
+- **Android / Chrome:** open the site → menu **⋮ → Install app** (or *Add to
+  Home screen*).
+- **iPhone / Safari:** open the site → **Share → Add to Home Screen**.
+
+A service worker caches the shell, so it also opens when the phone is offline
+(showing the last loaded version).
+
+---
+
 ## Quick reference
 
 | Task | Action |
