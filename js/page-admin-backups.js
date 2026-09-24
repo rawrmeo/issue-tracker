@@ -97,27 +97,58 @@
 
   function setAutoState(on, error) {
     var toggle = $('autoBackupToggle');
-    if (toggle) {
-      toggle.checked = on !== false;
-      toggle.disabled = (on === null);
-    }
-
     var chip = $('autoState');
-    if (!chip) return;
+    var note = $('autoBackupNote');
+
+    // Never leave a dead switch. It stays usable, and if the SQL half is not
+    // in place yet the note says so and the change reports itself.
+    if (toggle) {
+      toggle.disabled = false;
+      toggle.checked = on !== false;
+    }
 
     if (on === null) {
-      chip.textContent = 'not set up';
-      chip.className = 'role-chip role-user';
-      chip.title = String((error && error.message) || '');
-    } else if (on) {
-      chip.textContent = 'on';
-      chip.className = 'role-chip role-admin';
-      chip.title = 'Snapshots are taken automatically as issues change.';
-    } else {
-      chip.textContent = 'paused';
-      chip.className = 'role-chip role-user';
-      chip.title = 'Automatic snapshots are switched off.';
+      if (chip) {
+        chip.textContent = 'not set up';
+        chip.className = 'role-chip role-user';
+        chip.title = String((error && error.message) || '');
+      }
+      if (note) {
+        note.textContent = 'Automatic backups are not set up in this database yet, ' +
+          'so this switch cannot be saved. Run sql/auto_backup.sql in the Supabase ' +
+          'SQL Editor, then reload this page.';
+      }
+      return;
     }
+
+    if (note) note.textContent = '';
+
+    if (chip) {
+      if (on) {
+        chip.textContent = 'on';
+        chip.className = 'role-chip role-admin';
+        chip.title = 'Snapshots are taken automatically as issues change.';
+      } else {
+        chip.textContent = 'paused';
+        chip.className = 'role-chip role-user';
+        chip.title = 'Automatic snapshots are switched off.';
+      }
+    }
+  }
+
+  /** Say which file to run rather than showing a raw PostgREST error. */
+  function friendlyBackupError(error) {
+    var m = String((error && error.message) || '');
+    if (/Could not find the table|PGRST205|does not exist|schema cache/i.test(m)) {
+      return 'Automatic backups are not set up in this database yet. Run sql/auto_backup.sql in the Supabase SQL Editor, then reload.';
+    }
+    if (/Could not find the function|PGRST202/i.test(m)) {
+      return 'The backup functions are missing. Run sql/auto_backup.sql in the Supabase SQL Editor, then reload.';
+    }
+    if (/row-level security|permission denied/i.test(m)) {
+      return 'Only an admin can change the automatic-backup switch.';
+    }
+    return ET.friendlyError(error);
   }
 
   async function saveAutoBackup(on) {
@@ -134,7 +165,7 @@
     if (toggle) toggle.disabled = false;
 
     if (res.error) {
-      toast(ET.friendlyError(res.error));
+      toast(friendlyBackupError(res.error));
       loadSettings();                 // put the switch back where it really is
       return;
     }
@@ -212,9 +243,7 @@
     if (!silent) ET.setBusy(btn, false);
 
     if (res.error) {
-      var msg = missingTable(res.error)
-        ? 'The backup functions are not installed. Run sql/auto_backup.sql in the Supabase SQL Editor.'
-        : ET.friendlyError(res.error);
+      var msg = friendlyBackupError(res.error);
       setStatus(msg);
       if (!silent) toast(msg);
       return;

@@ -20,10 +20,10 @@
   var $ = function (id) { return document.getElementById(id); };
 
   var NAV = [
-    { key: 'dashboard', label: 'Dashboard', icon: 'ðŸ ', href: 'dashboard.html' },
-    { key: 'issues',    label: 'Issues',    icon: 'ðŸ“‹', href: 'issues.html' },
-    { key: 'profile',   label: 'Profile',   icon: 'ðŸ‘¤', href: 'profile.html' },
-    { key: 'settings',  label: 'Settings',  icon: 'âš™ï¸', href: 'settings.html' }
+    { key: 'dashboard', label: 'Dashboard', icon: '🏠', href: 'dashboard.html' },
+    { key: 'issues',    label: 'Issues',    icon: '📋', href: 'issues.html' },
+    { key: 'profile',   label: 'Profile',   icon: '👤', href: 'profile.html' },
+    { key: 'settings',  label: 'Settings',  icon: '⚙️', href: 'settings.html' }
   ];
 
   /* ================================= theme =============================== */
@@ -32,7 +32,7 @@
     document.documentElement.setAttribute('data-theme', theme === 'dark' ? 'dark' : 'light');
     var btn = $('themeBtn');
     if (btn) {
-      btn.textContent = theme === 'dark' ? 'â˜€ï¸' : 'ðŸŒ™';
+      btn.textContent = theme === 'dark' ? '☀️' : '🌙';
       btn.setAttribute('aria-label', theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode');
       btn.title = btn.getAttribute('aria-label');
     }
@@ -117,7 +117,7 @@
   function topbarHtml(title, user) {
     var admin = user.role === ET.ADMIN;
     return '' +
-      '<button type="button" class="btn ghost icon menu-btn" id="menuBtn" aria-label="Open menu">â˜°</button>' +
+      '<button type="button" class="btn ghost icon menu-btn" id="menuBtn" aria-label="Open menu">☰</button>' +
       '<div class="topbar-heading">' +
         '<h1 class="topbar-title" id="pageTitle">' + ET.escapeHtml(title) + '</h1>' +
         '<span class="role-badge' + (admin ? ' is-admin' : '') + '" id="roleBadge">' +
@@ -126,10 +126,10 @@
       '</div>' +
       '<div class="topbar-actions">' +
         '<span class="live-dot" id="liveDot" title="Live updates"></span>' +
-        '<button type="button" class="btn ghost icon" id="themeBtn" title="Toggle light / dark" aria-label="Toggle theme">ðŸŒ™</button>' +
+        '<button type="button" class="btn ghost icon" id="themeBtn" title="Toggle light / dark" aria-label="Toggle theme">🌙</button>' +
         '<div class="role-menu">' +
           '<button type="button" class="btn" id="roleMenuBtn" aria-haspopup="true" aria-expanded="false">' +
-            (admin ? 'Admin' : 'User') + ' â–¾' +
+            (admin ? 'Admin' : 'User') + ' ▾' +
           '</button>' +
           '<div class="role-menu-panel" id="roleMenuPanel" hidden>' +
             '<a href="profile.html">Profile</a>' +
@@ -216,7 +216,7 @@
         ET.sidebar.mount(user);
       }
 
-      document.title = (opts.title ? opts.title + ' Â· ' : '') + 'Issue Tracker';
+      document.title = (opts.title ? opts.title + ' · ' : '') + 'Issue Tracker';
       return user;
     },
     setTitle: function (title) {
