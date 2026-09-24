@@ -275,6 +275,12 @@
         }
 
         var upd = await sb.from('issues').update(patch).eq('id', editingId);
+        if (upd.error && /admin_note|column .* does not exist/i.test(String(upd.error.message || ''))) {
+          // The admin-message migration has not been run yet — save the rest.
+          delete patch.admin_note;
+          delete patch.admin_note_at;
+          upd = await sb.from('issues').update(patch).eq('id', editingId);
+        }
         if (upd.error) { toast(ET.friendlyError(upd.error)); return; }
 
         resetIssueForm();
@@ -321,6 +327,19 @@
     await refresh({ silent: true });
   }
 
+  /* Bin an issue. If the database has not had the recycle-bin migration yet,
+     fall back to a real delete so the button keeps working. */
+  async function binIssue(buildUpdate, buildDelete) {
+    var sb = ET.getClient();
+    if (!sb) return { error: null, fellBack: false };
+    var res = await buildUpdate(sb);
+    if (res.error && /deleted_at|column .* does not exist/i.test(String(res.error.message || ''))) {
+      var hard = await buildDelete(sb);
+      return { error: hard.error, fellBack: true };
+    }
+    return { error: res.error, fellBack: false };
+  }
+
   async function deleteIssue(id) {
     var issue = issues.filter(function (i) { return i.id === id; })[0];
     if (!issue) return;
@@ -330,15 +349,16 @@
       { title: 'Delete issue', okLabel: 'Move to bin' });
     if (!ok) return;
 
-    var sb = ET.getClient();
-    if (!sb) return;
     // Soft delete: the row stays in the database, hidden, until the bin is emptied.
-    var res = await sb.from('issues').update({ deleted_at: new Date().toISOString() }).eq('id', id);
-    if (res.error) { toast(ET.friendlyError(res.error)); return; }
+    var result = await binIssue(
+      function (sb) { return sb.from('issues').update({ deleted_at: new Date().toISOString() }).eq('id', id); },
+      function (sb) { return sb.from('issues').delete().eq('id', id); }
+    );
+    if (result.error) { toast(ET.friendlyError(result.error)); return; }
     if (editingId === id) resetIssueForm();
     delete selection[id];
     await refresh({ silent: true });
-    toast('Moved to the recycle bin.');
+    toast(result.fellBack ? 'Issue deleted.' : 'Moved to the recycle bin.');
   }
 
   async function clearDone() {
@@ -350,12 +370,15 @@
       { title: 'Clear done issues', okLabel: 'Move ' + done.length });
     if (!ok) return;
 
-    var sb = ET.getClient();
-    if (!sb) return;
-    var res = await sb.from('issues').update({ deleted_at: new Date().toISOString() }).eq('status', 'done');
-    if (res.error) { toast(ET.friendlyError(res.error)); return; }
+    var result = await binIssue(
+      function (sb) { return sb.from('issues').update({ deleted_at: new Date().toISOString() }).eq('status', 'done'); },
+      function (sb) { return sb.from('issues').delete().eq('status', 'done'); }
+    );
+    if (result.error) { toast(ET.friendlyError(result.error)); return; }
     await refresh({ silent: true });
-    toast('Moved ' + done.length + ' done issue(s) to the recycle bin.');
+    toast(result.fellBack
+      ? ('Cleared ' + done.length + ' done issue(s).')
+      : ('Moved ' + done.length + ' done issue(s) to the recycle bin.'));
   }
 
   /* ------------------------------ rendering ------------------------------ */
@@ -498,14 +521,17 @@
     var ok = await ET.confirm('Move ' + ids.length + ' selected issue(s) to the recycle bin?',
       { title: 'Delete issues', okLabel: 'Move ' + ids.length });
     if (!ok) return;
-    var sb = ET.getClient();
-    if (!sb) return;
-    var res = await sb.from('issues').update({ deleted_at: new Date().toISOString() }).in('id', ids);
-    if (res.error) { toast(ET.friendlyError(res.error)); return; }
+    var result = await binIssue(
+      function (sb) { return sb.from('issues').update({ deleted_at: new Date().toISOString() }).in('id', ids); },
+      function (sb) { return sb.from('issues').delete().in('id', ids); }
+    );
+    if (result.error) { toast(ET.friendlyError(result.error)); return; }
     selection = {};
     if (editingId && ids.indexOf(editingId) !== -1) resetIssueForm();
     await refresh({ silent: true });
-    toast('Moved ' + ids.length + ' issue(s) to the recycle bin.');
+    toast(result.fellBack
+      ? ('Deleted ' + ids.length + ' issue(s).')
+      : ('Moved ' + ids.length + ' issue(s) to the recycle bin.'));
   }
 
   function bulkSelectAll() {
