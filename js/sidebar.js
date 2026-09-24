@@ -28,15 +28,12 @@
   var $ = function (id) { return document.getElementById(id); };
 
   var ADMIN_LINKS = [
-    { label: 'Reported',   icon: '📥', href: 'admin-reported.html' },
-    { label: 'Pending',    icon: '⏳', href: 'admin-pending.html' },
-    { label: 'Fixing',     icon: '🔧', href: 'admin-fixing.html' },
-    { label: 'Done',       icon: '✅', href: 'admin-done.html' },
-    { label: 'Users',      icon: '👥', href: 'users.html' },
-    { label: 'Backups',    icon: '💾', href: 'admin-backups.html' },
-    { label: 'Recycle bin', icon: '🗑️', href: 'admin-recyclebin.html' },
+    { label: 'Status',      icon: '📊', href: 'admin-status.html' },
+    { label: 'All issues',  icon: '🏠', href: 'admin-all.html' },
     { sep: true },
-    { label: 'All issues', icon: '🏠', href: 'admin-all.html' }
+    { label: 'Users',       icon: '👥', href: 'users.html' },
+    { label: 'Backups',     icon: '💾', href: 'admin-backups.html' },
+    { label: 'Recycle bin', icon: '🗑️', href: 'admin-recyclebin.html' }
   ];
 
   function currentFile() {
