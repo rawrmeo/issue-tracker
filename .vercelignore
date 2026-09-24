@@ -1,0 +1,10 @@
+# Never upload local secrets or machine state to Vercel
+.env
+.env.*
+.vercel
+node_modules
+*.log
+
+# OS noise
+.DS_Store
+Thumbs.db
