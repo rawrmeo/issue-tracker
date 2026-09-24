@@ -166,3 +166,17 @@
   font: 600 .78rem/1.6 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 .keys-grid span { font-size: .86rem; color: var(--muted); }
+
+/* --------------------------- backup snapshots --------------------------- */
+.backup-list { display: grid; gap: .3rem; }
+.backup-row {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  flex-wrap: wrap;
+  padding: .5rem .6rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.backup-row .backup-when { flex: 1 1 auto; font-size: .86rem; font-weight: 600; }
+.backup-row .btn { padding: .3rem .7rem; font-size: .82rem; }

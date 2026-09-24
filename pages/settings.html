@@ -70,6 +70,32 @@
 
           <p class="inline-note" id="settingsStatus" role="status"></p>
         </section>
+
+        <section class="card panel" id="backupPanel" hidden>
+          <div class="panel-head">
+            <h2>Automatic backups</h2>
+            <p class="muted">Snapshots of every issue, taken by the database itself.</p>
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-text">
+              <span class="name">Automatic backups</span>
+              <span class="muted small">Take a snapshot at most once an hour when issues change.</span>
+            </div>
+            <div class="setting-control">
+              <input type="checkbox" class="switch" id="autoBackupToggle" aria-label="Automatic backups" />
+            </div>
+          </div>
+
+          <div class="card-row">
+            <button type="button" class="btn primary" id="backupNowBtn">Back up now</button>
+            <button type="button" class="btn" id="backupRefreshBtn">Refresh</button>
+          </div>
+          <p class="muted small" id="backupNote" role="status"></p>
+
+          <h3 style="margin-top:1rem;">Saved snapshots <span class="muted" id="backupCount">0</span></h3>
+          <div id="backupList" class="backup-list"></div>
+        </section>
       </main>
     </div>
   </div>

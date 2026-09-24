@@ -42,6 +42,105 @@
     ET.toast('Filters cleared.');
   }
 
+  /* --------------------------- automatic backups ------------------------- */
+
+  var backups = [];
+
+  function backupNote(text) {
+    var n = $('backupNote');
+    if (n) n.textContent = text || '';
+  }
+
+  function renderBackups() {
+    var list = $('backupList');
+    var count = $('backupCount');
+    if (count) count.textContent = backups.length;
+    if (!list) return;
+
+    if (!backups.length) {
+      list.innerHTML = '<p class="muted small">No snapshots yet.</p>';
+      return;
+    }
+    list.innerHTML = backups.map(function (b) {
+      return '<div class="backup-row">' +
+        '<span class="backup-when">' + ET.escapeHtml(ET.formatDate(Date.parse(b.created_at))) + '</span>' +
+        '<span class="badge">' + ET.escapeHtml(b.kind) + '</span>' +
+        '<span class="muted small">' + b.issue_count + ' issue(s)</span>' +
+        '<button type="button" class="btn ghost" data-restore="' + ET.escapeHtml(b.id) + '">Restore</button>' +
+      '</div>';
+    }).join('');
+  }
+
+  async function loadBackups() {
+    var sb = ET.getClient();
+    if (!sb) return;
+    var results = await Promise.all([
+      sb.from('app_settings').select('auto_backup_enabled').limit(1),
+      sb.from('backups').select('id, created_at, kind, issue_count')
+        .order('created_at', { ascending: false }).limit(30)
+    ]);
+    var settingsRes = results[0], backupsRes = results[1];
+    if (settingsRes.error || backupsRes.error) {
+      backupNote('Could not load backups: ' + ET.friendlyError(settingsRes.error || backupsRes.error));
+      return;
+    }
+    var row = (settingsRes.data || [])[0];
+    var toggle = $('autoBackupToggle');
+    if (toggle) toggle.checked = !row || row.auto_backup_enabled !== false;
+    backups = backupsRes.data || [];
+    renderBackups();
+  }
+
+  async function createBackup() {
+    var sb = ET.getClient();
+    if (!sb) return;
+    var res = await sb.rpc('create_backup');
+    if (res.error) { backupNote(ET.friendlyError(res.error)); return; }
+    await loadBackups();
+    backupNote('Backup taken.');
+    ET.toast('Backup taken.');
+  }
+
+  async function restoreBackup(id) {
+    var ok = await ET.confirm('Restore this snapshot? The current issues will be replaced ' +
+      '(a safety snapshot is taken first).', { title: 'Restore backup', okLabel: 'Restore' });
+    if (!ok) return;
+    var sb = ET.getClient();
+    if (!sb) return;
+    var res = await sb.rpc('restore_backup', { p_id: id });
+    if (res.error) { backupNote(ET.friendlyError(res.error)); return; }
+    await loadBackups();
+    backupNote('Restored ' + (res.data || 0) + ' issue(s).');
+    ET.toast('Backup restored.');
+  }
+
+  function initBackups() {
+    var panel = $('backupPanel');
+    if (panel) panel.hidden = false;
+
+    var toggle = $('autoBackupToggle');
+    if (toggle) toggle.addEventListener('change', async function () {
+      var sb = ET.getClient();
+      if (!sb) return;
+      var res = await sb.from('app_settings').update({ auto_backup_enabled: toggle.checked }).eq('id', true);
+      if (res.error) { backupNote(ET.friendlyError(res.error)); return; }
+      backupNote(toggle.checked ? 'Automatic backups on.' : 'Automatic backups off.');
+    });
+
+    var now = $('backupNowBtn');
+    if (now) now.addEventListener('click', createBackup);
+    var refresh = $('backupRefreshBtn');
+    if (refresh) refresh.addEventListener('click', loadBackups);
+
+    var list = $('backupList');
+    if (list) list.addEventListener('click', function (e) {
+      var btn = e.target.closest('[data-restore]');
+      if (btn) restoreBackup(btn.getAttribute('data-restore'));
+    });
+
+    loadBackups();
+  }
+
   async function init() {
     var user = await ET.layout.render({ active: 'settings', title: 'Settings' });
     if (!user) return;
@@ -66,6 +165,8 @@
       var topBtn = $('themeBtn');
       if (topBtn) topBtn.addEventListener('click', function () { setTimeout(paintTheme, 0); });
     }
+
+    if (ET.auth.isAdmin()) initBackups();
 
     var clearBtn = $('clearFiltersBtn');
     if (clearBtn) clearBtn.addEventListener('click', clearAllFilters);

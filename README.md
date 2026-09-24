@@ -232,9 +232,17 @@ A service worker caches the shell, so it also opens when the phone is offline
 - **Keyboard shortcuts** — on the Issues page: `/` search, `N` new issue,
   `?` help, `Esc` close.
 - **Appearance** — Settings now offers **Auto / Light / Night**.
+- **Recycle bin** — deleting an issue now bins it instead of erasing it. Admins
+  open **Recycle bin** in the sidebar to restore one or empty the bin.
+- **Install app** — an **Install app** button (sidebar and sign-in page) turns
+  the site into a home-screen app on phones.
+- **Automatic backups (admins)** — Settings → **Automatic backups**. The
+  database snapshots every issue at most once an hour; admins can **Back up
+  now**, see saved snapshots and **Restore** one.
 
-> **One-time database step** for the message box: run `sql/admin_note.sql`
-> (or `supabase/schema.sql`) in Supabase → SQL Editor → Run.
+> **One-time database step.** Run these in Supabase → SQL Editor → Run (or just
+> run the whole `supabase/schema.sql`, which includes them):
+> `sql/admin_note.sql`, `sql/recycle_bin.sql`, `sql/backups.sql`.
 
 ---
 
