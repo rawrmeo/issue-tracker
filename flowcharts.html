@@ -29,7 +29,7 @@
 <body>
 <header>
   <h1>Issue Tracker — flowcharts</h1>
-  <p>28 diagrams, rendered from HANDOVER.md and ARCHITECTURE.md</p>
+  <p>31 diagrams, rendered from HANDOVER.md and ARCHITECTURE.md</p>
 </header>
 <main>
   <section class="card">
@@ -503,6 +503,55 @@
   Page-&gt;&gt;Page: refresh() → re-render
   API--&gt;&gt;Page: Realtime event → other open tabs refresh too
   Page--&gt;&gt;U: toast "Status changed to Done"</pre>
+  </section>
+  <section class="card">
+    <h2><span class="n">29</span>11. Process flow — the PDCE cycle</h2>
+    <p class="src">ARCHITECTURE.md</p>
+    <pre class="mermaid">flowchart LR
+  P["P · PLAN&lt;br/&gt;report &amp;amp; triage"] --&gt; D["D · DO&lt;br/&gt;fix it"]
+  D --&gt; C["C · CHECK&lt;br/&gt;verify the fix"]
+  C --&gt; E["E · EVALUATE&lt;br/&gt;close &amp;amp; learn"]
+  E --&gt;|"not fixed, or it came back"| P</pre>
+  </section>
+  <section class="card">
+    <h2><span class="n">30</span>11.1 The loop, mapped onto the app</h2>
+    <p class="src">ARCHITECTURE.md</p>
+    <pre class="mermaid">flowchart TD
+  subgraph PLAN["P · PLAN — the reporter's turn"]
+    A1["Reporter signs in"] --&gt; A2["Files an issue&lt;br/&gt;status = pending"]
+    A2 --&gt; A3["Admin triages —&lt;br/&gt;reads it, sets the priority"]
+  end
+
+  subgraph DO["D · DO — the admin's turn"]
+    B1["Admin sets status = fixing"] --&gt; B2["Works on the fix"]
+  end
+
+  subgraph CHECK["C · CHECK — the app's guard rails"]
+    C1["Admin picks Done"] --&gt; C2["admin-*.html asks:&lt;br/&gt;'Mark as done?'"]
+    C2 --&gt;|cancel| B2
+    C2 --&gt;|confirm| C3["guard_issue_changes()&lt;br/&gt;sets completed_at"]
+  end
+
+  subgraph EVAL["E · EVALUATE — close the loop"]
+    D1["Admin leaves a&lt;br/&gt;Message to the reporter"] --&gt; D2["Reporter sees it on the issue"]
+    D2 --&gt; D3{"Satisfied?"}
+    D3 --&gt;|yes| D4["Stays done"]
+    D3 --&gt;|no| D5["Reopen → fixing / pending"]
+  end
+
+  PLAN --&gt; DO --&gt; CHECK --&gt; EVAL
+  D5 --&gt; DO
+  D4 --&gt; STATS["Dashboard + repeated issues&lt;br/&gt;accumulate the evidence"]
+  STATS --&gt; PLAN</pre>
+  </section>
+  <section class="card">
+    <h2><span class="n">31</span>11.3 The same cycle for the maintainer</h2>
+    <p class="src">ARCHITECTURE.md</p>
+    <pre class="mermaid">flowchart LR
+  P["PLAN&lt;br/&gt;pick a change"] --&gt; D["DO&lt;br/&gt;edit · commit · push"]
+  D --&gt; C["CHECK&lt;br/&gt;test the preview build"]
+  C --&gt; E["EVALUATE&lt;br/&gt;deploy, or open a new task"]
+  E --&gt; P</pre>
   </section>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>

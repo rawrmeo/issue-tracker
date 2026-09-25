@@ -310,6 +310,76 @@ sequenceDiagram
 
 ---
 
+## 11. Process flow — the PDCE cycle
+
+The app exists to run a **continuous improvement loop**, so its day-to-day
+process is best read as **Plan → Do → Check → Evaluate**.
+
+```mermaid
+flowchart LR
+  P["P · PLAN<br/>report &amp; triage"] --> D["D · DO<br/>fix it"]
+  D --> C["C · CHECK<br/>verify the fix"]
+  C --> E["E · EVALUATE<br/>close &amp; learn"]
+  E -->|"not fixed, or it came back"| P
+```
+
+### 11.1 The loop, mapped onto the app
+
+```mermaid
+flowchart TD
+  subgraph PLAN["P · PLAN — the reporter's turn"]
+    A1["Reporter signs in"] --> A2["Files an issue<br/>status = pending"]
+    A2 --> A3["Admin triages —<br/>reads it, sets the priority"]
+  end
+
+  subgraph DO["D · DO — the admin's turn"]
+    B1["Admin sets status = fixing"] --> B2["Works on the fix"]
+  end
+
+  subgraph CHECK["C · CHECK — the app's guard rails"]
+    C1["Admin picks Done"] --> C2["admin-*.html asks:<br/>'Mark as done?'"]
+    C2 -->|cancel| B2
+    C2 -->|confirm| C3["guard_issue_changes()<br/>sets completed_at"]
+  end
+
+  subgraph EVAL["E · EVALUATE — close the loop"]
+    D1["Admin leaves a<br/>Message to the reporter"] --> D2["Reporter sees it on the issue"]
+    D2 --> D3{"Satisfied?"}
+    D3 -->|yes| D4["Stays done"]
+    D3 -->|no| D5["Reopen → fixing / pending"]
+  end
+
+  PLAN --> DO --> CHECK --> EVAL
+  D5 --> DO
+  D4 --> STATS["Dashboard + repeated issues<br/>accumulate the evidence"]
+  STATS --> PLAN
+```
+
+### 11.2 Where each phase actually lives
+
+| Phase | Who | In the app | In the database |
+|---|---|---|---|
+| **P · Plan** | Reporter | `pages/issues.html` → report form | `insert into issues`, `status = 'pending'` |
+| **D · Do** | Admin | Status dropdown → **Fixing** | `update status` — RLS allows admins only |
+| **C · Check** | Admin | The confirm dialog before **Done** (`page-admin.js`) | `guard_issue_changes()` sets `completed_at` |
+| **E · Evaluate** | Admin + Reporter | **Message to the reporter**; the repeated-issues list spots a regression | `admin_note`, then back to `pending`/`fixing` if reopened |
+
+**Why the loop is real, not just a label:** every phase writes to the same
+`issues` row, and the Dashboard + *Most repeated issues* card feed the evidence
+straight back into the next round of planning.
+
+### 11.3 The same cycle for the maintainer
+
+```mermaid
+flowchart LR
+  P["PLAN<br/>pick a change"] --> D["DO<br/>edit · commit · push"]
+  D --> C["CHECK<br/>test the preview build"]
+  C --> E["EVALUATE<br/>deploy, or open a new task"]
+  E --> P
+```
+
+---
+
 ## Quick reference
 
 | Concern | Where it lives |
