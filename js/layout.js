@@ -130,6 +130,18 @@
       '<div class="topbar-actions">' +
         '<span class="live-dot" id="liveDot" title="Live updates"></span>' +
         '<div class="role-menu">' +
+          '<button type="button" class="btn ghost icon notif-btn" id="notifBtn" aria-label="Notifications" aria-haspopup="true" aria-expanded="false">' +
+            '🔔<span class="dot" id="notifDot" hidden>0</span>' +
+          '</button>' +
+          '<div class="role-menu-panel notif-panel" id="notifPanel" hidden>' +
+            '<div class="notif-head">' +
+              '<span class="nm">Notifications</span>' +
+              '<button type="button" class="linkbtn" id="notifMarkAll">Mark all read</button>' +
+            '</div>' +
+            '<div class="notif-list" id="notifList"></div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="role-menu">' +
           '<button type="button" class="btn profile-btn" id="profileMenuBtn" aria-haspopup="true" aria-expanded="false">' +
             '<span class="avatar" id="topAvatar">' + initial + '</span>' +
             '<span class="who" id="topName">' + name + '</span>' +

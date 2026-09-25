@@ -246,7 +246,22 @@ A service worker caches the shell, so it also opens when the phone is offline
 > **One-time database step.** Run these in Supabase → SQL Editor → Run (or just
 > run the whole `supabase/schema.sql`, which includes them):
 > `sql/admin_note.sql`, `sql/recycle_bin.sql`, `sql/backups.sql`,
-> `sql/push_notifications.sql`.
+> `sql/push_notifications.sql`, `sql/notifications.sql`.
+
+### Notifications (both roles)
+
+A **bell** sits in the top bar next to your profile. You are told when:
+
+| Event | Who is told |
+|---|---|
+| A new issue is reported | every admin (except the one who reported it) |
+| An admin marks an issue **done** | the reporter |
+| An admin **leaves a message** | the reporter |
+
+Rows live in `public.notifications`; click the bell to read them, or
+**Mark all read**. The feed arrives live over Realtime. Run
+`sql/notifications.sql` once — until then the bell simply stays empty.
+Push (below) delivers the same three events to a phone.
 
 ### Push notifications (optional)
 
