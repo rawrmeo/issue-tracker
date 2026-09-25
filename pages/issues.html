@@ -118,52 +118,9 @@
               <option value="title">Title (A–Z)</option>
             </select>
 
-            <!-- Export used to live in the old topbar; it now belongs here -->
-            <button type="button" class="btn ghost admin-only" id="exportBtn" title="Download the issues as JSON">Export</button>
             <button type="button" class="btn ghost danger admin-only" id="clearDoneBtn">Clear done</button>
             <button type="button" class="btn ghost" id="refreshBtn" title="Reload from the database">Refresh</button>
           </div>
-        </section>
-
-        <!-- ===== MOVED from index.html: date filter bar (Slice 2) ===== -->
-        <section class="card panel et-datebar" id="etDateBar">
-          <div class="et-datebar-head">
-            <span class="et-datebar-title">Filter by date</span>
-            <span class="et-count" id="etDateCount">0 results</span>
-          </div>
-
-          <div class="et-datebar-row">
-            <div class="et-presets" id="etDatePresets" role="group" aria-label="Date presets">
-              <button type="button" class="et-chip" data-preset="today">Today</button>
-              <button type="button" class="et-chip" data-preset="week">This Week</button>
-              <button type="button" class="et-chip" data-preset="month">This Month</button>
-              <button type="button" class="et-chip" data-preset="lastmonth">Last Month</button>
-              <button type="button" class="et-chip" data-preset="year">This Year</button>
-            </div>
-          </div>
-
-          <div class="et-datebar-row">
-            <label class="et-field">
-              <span>Month</span>
-              <input type="month" id="etMonth" />
-            </label>
-
-            <div class="et-field">
-              <span>Custom range</span>
-              <div class="et-range">
-                <input type="date" id="etFrom" aria-label="From date" />
-                <span class="et-dash">&rarr;</span>
-                <input type="date" id="etTo" aria-label="To date" />
-              </div>
-            </div>
-
-            <button type="button" class="btn ghost et-clear" id="etDateClear" disabled>Clear date filter</button>
-          </div>
-
-          <p class="et-hint" id="etDateNote" hidden>
-            No issues were created in this date range. Try a wider range, or
-            <button type="button" class="linkbtn" id="etDateNoteClear">clear the date filter</button>.
-          </p>
         </section>
 
         <!-- ===== admin bulk actions (shown once a row is ticked) ===== -->
@@ -190,6 +147,43 @@
           <p class="muted" id="emptyText">Report your first issue using the form above.</p>
         </div>
       </main>
+    </div>
+  </div>
+
+  <div class="keys-pop" id="notePop" hidden role="dialog" aria-modal="true" aria-labelledby="noteTitle">
+    <div class="keys-card note-card">
+      <h3 id="noteTitle">Message to the reporter</h3>
+      <p class="sub" id="noteWho">Tell them what you did.</p>
+
+      <div class="row">
+        <label class="field">
+          <span>Status</span>
+          <select id="noteStatus">
+            <option value="pending">Pending</option>
+            <option value="fixing">Fixing</option>
+            <option value="done">Done</option>
+          </select>
+        </label>
+
+        <label class="field">
+          <span>Priority</span>
+          <select id="notePriority">
+            <option value="low">Low</option>
+            <option value="medium">Medium</option>
+            <option value="high">High</option>
+          </select>
+        </label>
+      </div>
+
+      <label class="field">
+        <span>Message <small class="muted">(optional)</small></span>
+        <textarea id="noteText" rows="3" maxlength="1000" placeholder="e.g. Fixed in the latest update — thanks for the clear steps!"></textarea>
+      </label>
+
+      <div class="form-actions">
+        <button type="button" class="btn primary" id="noteSave">Send message</button>
+        <button type="button" class="btn ghost" id="noteCancel">Cancel</button>
+      </div>
     </div>
   </div>
 

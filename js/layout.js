@@ -24,6 +24,7 @@
   var NAV = [
     { key: 'dashboard', label: 'Dashboard', icon: '🏠', href: 'dashboard.html',    group: 'main', bottom: true },
     { key: 'issues',    label: 'Issues',    icon: '📋', href: 'issues.html',       group: 'main', bottom: true },
+    { key: 'reports',   label: 'Reports',   icon: '📊', href: 'reports.html',      group: 'main', admin: true, bottom: true },
     { key: 'users',     label: 'Users',     icon: '👥', href: 'users.html',        group: 'main', admin: true },
     { key: 'archive',   label: 'Archive',   icon: '🗄️', href: 'recycle-bin.html',  group: 'main', admin: true, bottom: true }
   ];

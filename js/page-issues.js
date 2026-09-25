@@ -188,15 +188,76 @@
     if (lockBox) { lockBox.hidden = true; lockBox.textContent = ''; }
   }
 
+  /* ---- small "message to the reporter" dialog (admins, others' issues) ---- */
+
+  var noteId = null;
+
+  function openNoteDialog(issue) {
+    noteId = issue.id;
+    $('noteWho').textContent = 'Reported by ' + authorName(issue.authorId) +
+      '. The report itself is kept as written.';
+    $('noteStatus').value = issue.status;
+    $('notePriority').value = issue.priority;
+    $('noteText').value = issue.adminNote || '';
+    $('notePop').hidden = false;
+    setTimeout(function () { $('noteText').focus(); }, 30);
+  }
+
+  function closeNoteDialog() {
+    noteId = null;
+    $('notePop').hidden = true;
+  }
+
+  async function saveNoteDialog() {
+    if (!noteId || !isAdmin()) return;
+    var issue = issues.filter(function (i) { return i.id === noteId; })[0];
+    if (!issue) { closeNoteDialog(); return; }
+
+    var sb = ET.getClient();
+    if (!sb) return;
+
+    var patch = {
+      status: $('noteStatus').value,
+      priority: $('notePriority').value
+    };
+    var note = $('noteText').value.trim();
+    if (note !== (issue.adminNote || '')) {
+      patch.admin_note = note;
+      patch.admin_note_at = new Date().toISOString();
+    }
+
+    var btn = $('noteSave');
+    btn.disabled = true;
+    try {
+      var res = await sb.from('issues').update(patch).eq('id', noteId);
+      if (res.error && /admin_note|column .* does not exist/i.test(String(res.error.message || ''))) {
+        delete patch.admin_note;
+        delete patch.admin_note_at;
+        res = await sb.from('issues').update(patch).eq('id', noteId);
+      }
+      if (res.error) { toast(ET.friendlyError(res.error)); return; }
+      closeNoteDialog();
+      await refresh({ silent: true });
+      toast(note ? 'Message sent to the reporter.' : 'Issue updated.');
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
   function startEdit(id) {
     var issue = issues.filter(function (i) { return i.id === id; })[0];
     if (!issue || !canManage(issue)) return;
 
     var u = ET.auth.user;
+    var mine = !!u && issue.authorId === u.id;
+
+    /* An admin opening someone else's issue gets the small comment dialog
+       instead of the big form: the report itself stays exactly as written. */
+    if (isAdmin() && !mine) { openNoteDialog(issue); return; }
+
     /* Once reported, the reporter's own words are kept — nobody rewrites the
-       title and description of someone else's report. The status and priority
-       are still managed by an admin, who can also leave a message. */
-    var lockText = !(u && issue.authorId === u.id);
+       title and description of someone else's report. */
+    var lockText = !mine;
 
     editingId = id;
     $('issueTitle').value = issue.title;
@@ -672,7 +733,6 @@
       await refresh();
       toast('Reloaded from the database.');
     });
-    $('exportBtn').addEventListener('click', exportBackup);
 
     Array.prototype.forEach.call(document.querySelectorAll('.seg[data-filter="status"]'), function (btn) {
       btn.addEventListener('click', function () {
@@ -712,6 +772,14 @@
     var delSel = $('bulkDelete');
     if (delSel) delSel.addEventListener('click', bulkDelete);
 
+    /* ---- message-to-the-reporter dialog ---- */
+    var noteSave = $('noteSave');
+    if (noteSave) noteSave.addEventListener('click', saveNoteDialog);
+    var noteCancel = $('noteCancel');
+    if (noteCancel) noteCancel.addEventListener('click', closeNoteDialog);
+    var notePop = $('notePop');
+    if (notePop) notePop.addEventListener('click', function (e) { if (e.target === notePop) closeNoteDialog(); });
+
     /* ---- keyboard shortcuts ---- */
     var keysPop = $('keysPop');
     var keysClose = $('keysClose');
@@ -740,6 +808,7 @@
         if (keysPop) keysPop.hidden = !keysPop.hidden;
       } else if (e.key === 'Escape') {
         closeKeys();
+        closeNoteDialog();
       }
     });
   }
