@@ -167,6 +167,7 @@
             '<div class="sep"></div>' +
             '<a href="profile.html">Profile</a>' +
             '<a href="settings.html">Settings</a>' +
+            '<button type="button" data-install-btn hidden>Install app</button>' +
             '<div class="sep"></div>' +
             '<button type="button" id="profileMenuLogout">Logout</button>' +
           '</div>' +
@@ -281,6 +282,9 @@
       }
 
       mountBottomNav(user, opts.active || '');
+
+      // Show/hide the Install app entry now that the profile menu exists.
+      if (ET.install && typeof ET.install.refresh === 'function') ET.install.refresh();
 
       document.title = (opts.title ? opts.title + ' · ' : '') + 'Issue Tracker';
       return user;

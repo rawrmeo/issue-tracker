@@ -53,14 +53,18 @@ Only admins can change the status of an issue
 
 | File | Purpose |
 | --- | --- |
-| `index.html` | Page structure (auth + app views) |
+| `index.html` | **Entry point** — sign in / create account, then redirects into `pages/` |
+| `pages/*.html` | The app screens (dashboard, issues, my-reports, reports, users, profile, settings, archive) |
+| `js/*.js` | Shared modules + one script per page |
 | `styles.css` | Styling and theme |
-| `app.js` | UI, Supabase client calls, permissions for the UI |
+| `app.js` | Legacy single-page script — unused by the current pages |
 | `supabase-config.js` | **Your** project URL + anon key (you fill this in) |
-| `supabase/schema.sql` | Tables, RLS policies, triggers - run once |
+| `supabase/schema.sql` | Base tables, RLS policies, triggers - run once |
+| `sql/APPLY-ALL.sql` | Every migration in one paste-once file |
 | `ARCHITECTURE.md` | System architecture + process-flow diagrams (Mermaid) |
 | `HANDOVER.md` | Complete handover guide: abstract, repo map, and every left-panel item walked through with a flowchart |
-| `flowcharts.html` | All 28 diagrams rendered on one page — just open it in a browser |
+| `flowcharts.html` | Every diagram rendered on one page — just open it in a browser |
+| `tools/build-flowcharts.ps1` | Regenerates `flowcharts.html` from the two markdown files |
 | `SETUP.md` | Step-by-step database setup |
 | `vercel.json` | Vercel config (clean URLs, security headers) |
 | `deploy.ps1` | Windows helper: commit + push in one command |
@@ -237,16 +241,20 @@ A service worker caches the shell, so it also opens when the phone is offline
 - **Appearance** — Settings now offers **Auto / Light / Night**.
 - **Archive** — deleting an issue moves it to the Archive instead of erasing
   it. Admins open **Archive** in the sidebar to restore one or empty it.
+- **My Reports** — every user gets a read-only page with their own reports,
+  whatever their status, including any message an admin left.
+- **Reports (admins)** — filter by day, week, month, year or a custom range,
+  then export exactly what is shown as **CSV**, **JSON** or **Print / PDF**.
 - **Install app** — an **Install app** button (sidebar and sign-in page) turns
   the site into a home-screen app on phones.
 - **Automatic backups (admins)** — Settings → **Automatic backups**. The
   database snapshots every issue at most once an hour; admins can **Back up
   now**, see saved snapshots and **Restore** one.
 
-> **One-time database step.** Run these in Supabase → SQL Editor → Run (or just
-> run the whole `supabase/schema.sql`, which includes them):
-> `sql/admin_note.sql`, `sql/recycle_bin.sql`, `sql/backups.sql`,
-> `sql/push_notifications.sql`, `sql/notifications.sql`.
+> **One-time database step.** Run `supabase/schema.sql`, then paste
+> **`sql/APPLY-ALL.sql`** in Supabase → SQL Editor → Run. That one file contains
+> every migration: `admin_note`, `recycle_bin`, `backups`,
+> `push_notifications` and `notifications`.
 
 ### Notifications (both roles)
 
