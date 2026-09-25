@@ -112,7 +112,7 @@
     }
 
     var styles = getComputedStyle(document.documentElement);
-    var accent = (styles.getPropertyValue('--accent') || '#4f46e5').trim();
+    var accent = (styles.getPropertyValue('--accent') || '#1F6F9C').trim();
     var border = (styles.getPropertyValue('--border') || '#e3e5ee').trim();
     var muted = (styles.getPropertyValue('--muted') || '#6b7186').trim();
 

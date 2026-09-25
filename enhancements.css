@@ -37,7 +37,7 @@
   background: currentColor;
   flex: 0 0 auto;
 }
-#roleChip.role-admin { background: var(--accent-soft, #eceafd); color: var(--accent, #4f46e5); }
+#roleChip.role-admin { background: var(--accent-soft, #E4F0F6); color: var(--accent, #1F6F9C); }
 #roleChip.role-user  { background: var(--surface-2, #f1f2f7);  color: var(--muted, #6b7186); }
 
 
@@ -114,8 +114,8 @@
 .et-count {
   font-size: .82rem;
   font-weight: 700;
-  color: var(--accent, #4f46e5);
-  background: var(--accent-soft, #eceafd);
+  color: var(--accent, #1F6F9C);
+  background: var(--accent-soft, #E4F0F6);
   padding: .3rem .75rem;
   border-radius: 999px;
   font-variant-numeric: tabular-nums;

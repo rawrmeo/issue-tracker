@@ -5,8 +5,8 @@
   --border: #e3e5ee;
   --text: #1b1d29;
   --muted: #6b7186;
-  --accent: #4f46e5;
-  --accent-soft: #eceafd;
+  --accent: #1F6F9C;
+  --accent-soft: #E4F0F6;
   --danger: #dc2626;
   --danger-soft: #fdecec;
   --warn: #b45309;
@@ -24,8 +24,8 @@ html[data-theme="dark"] {
   --border: #2a2f3d;
   --text: #e8eaf2;
   --muted: #9aa1b5;
-  --accent: #8b83ff;
-  --accent-soft: #262347;
+  --accent: #5CB3E0;
+  --accent-soft: #14303D;
   --danger: #f87171;
   --danger-soft: #3a1f22;
   --warn: #fbbf24;
@@ -46,8 +46,8 @@ html[data-theme="dark"] {
     --border: #2a2f3d;
     --text: #e8eaf2;
     --muted: #9aa1b5;
-    --accent: #8b83ff;
-    --accent-soft: #262347;
+    --accent: #5CB3E0;
+    --accent-soft: #14303D;
     --danger: #f87171;
     --danger-soft: #3a1f22;
     --warn: #fbbf24;
@@ -176,6 +176,25 @@ input:focus, textarea:focus, select:focus {
   border: 1px solid var(--border);
 }
 .brand.small .brand-mark { width: 28px; height: 28px; border-radius: 8px; }
+
+/* Sign-in card: the mark centred, and a little bigger. */
+.auth-card .brand {
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: .85rem;
+  margin-bottom: 1.4rem;
+}
+.auth-card .brand .brand-mark {
+  width: 74px; height: 74px; border-radius: 20px;
+}
+.auth-card .brand .brand-mark svg { width: 50px; height: 50px; }
+.auth-card .brand .brand-name {
+  font-size: 1.6rem;
+  font-weight: 750;
+  letter-spacing: -.02em;
+}
 
 /* -------------------------------- Cards -------------------------------- */
 .card {

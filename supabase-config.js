@@ -31,5 +31,5 @@ window.SUPABASE_CONFIG = {
      pair here — it is safe to publish. Generate the pair once with:
          npx web-push generate-vapid-keys
      Leave it empty and the Notifications switch in Settings stays off. */
-  vapidPublicKey: '',
+  vapidPublicKey: 'BOBYN43lUAjyy32CubTi5LUsc4TRORXNdHmhcVYi9ByVCoIojd4bzTJLXwEE3waIBd6pWYfcAKyFTGgp31b6KeY',
 };
