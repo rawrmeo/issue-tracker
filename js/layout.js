@@ -29,6 +29,16 @@
     { key: 'archive',   label: 'Archive',   icon: '🗄️', href: 'recycle-bin.html',  group: 'main', admin: true, bottom: true }
   ];
 
+  /* The app mark: a blue "I", an orange "T" and a check. */
+  var LOGO_SVG = '<svg viewBox="0 0 100 100" width="19" height="19" aria-hidden="true">' +
+    '<g fill="#1F6F9C"><rect x="29" y="15" width="17" height="17" rx="3.5"/>' +
+    '<rect x="29" y="40" width="17" height="38" rx="3.5"/>' +
+    '<rect x="50" y="15" width="15" height="17" rx="3.5"/></g>' +
+    '<g fill="#E07B1C"><rect x="65" y="15" width="18" height="17" rx="3.5"/>' +
+    '<rect x="65" y="32" width="17" height="26" rx="3.5"/></g>' +
+    '<path d="M43 62 L57 77 L82 48" fill="none" stroke="#E07B1C" stroke-width="12" ' +
+    'stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
   /* ================================= theme =============================== */
 
   function applyTheme(theme) {
@@ -102,9 +112,7 @@
 
     return '' +
       '<div class="sidebar-brand">' +
-        '<span class="brand-mark" aria-hidden="true">' +
-          '<svg viewBox="0 0 24 24" width="17" height="17"><path d="M5 13l4 4L19 7" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
-        '</span>' +
+        '<span class="brand-mark" aria-hidden="true">' + LOGO_SVG + '</span>' +
         '<span>Issue Tracker</span>' +
       '</div>' +
 
@@ -113,7 +121,7 @@
       (footLinks ? '<nav class="nav sidebar-nav-bottom" aria-label="More">' + footLinks + '</nav>' : '') +
 
       '<div class="sidebar-foot">' +
-        '<button type="button" class="btn ghost block" id="logoutBtn">Logout</button>' +
+        '<button type="button" class="btn blue block" id="logoutBtn">Logout</button>' +
       '</div>';
   }
 

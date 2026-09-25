@@ -106,6 +106,9 @@ p { margin: 0; }
 .btn.ghost:hover { background: var(--surface-2); }
 .btn.danger { color: var(--danger); border-color: transparent; }
 .btn.danger:hover { background: var(--danger-soft); }
+/* The Logout button — a solid blue, matching the app mark. */
+.btn.blue { background: #1F6F9C; border-color: #1F6F9C; color: #fff; }
+.btn.blue:hover:not(:disabled) { filter: brightness(1.08); background: #1F6F9C; }
 .btn.block { width: 100%; }
 .btn.icon { padding: .5rem .6rem; line-height: 1; }
 
@@ -169,7 +172,8 @@ input:focus, textarea:focus, select:focus {
 .brand-mark {
   display: grid; place-items: center;
   width: 34px; height: 34px; border-radius: 10px;
-  background: var(--accent); color: #fff;
+  background: #fff; color: #fff;
+  border: 1px solid var(--border);
 }
 .brand.small .brand-mark { width: 28px; height: 28px; border-radius: 8px; }
 
