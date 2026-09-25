@@ -4,10 +4,10 @@
  * Renders the shared sidebar + topbar on every app page so the markup is not
  * repeated six times.
  *
- * IMPORTANT — id reuse:
- *   The sidebar/topbar reuse the ids the existing code expects
- *   (#userChip, #roleChip, #logoutBtn, #liveDot, #menuBtn). enhancements.js
- *   also reads #roleChip, so the role text and the role-admin class matter.
+ * IMPORTANT — ids the rest of the app expects:
+ *   #menuBtn, #logoutBtn, #liveDot, #pageTitle, #profileMenuBtn and
+ *   #profileMenuPanel. Some legacy helpers look for #userChip / #roleChip, so
+ *   keep reading the role from ET.auth (enhancements.js does).
  * ========================================================================= */
 
 (function () {
@@ -18,15 +18,14 @@
 
   var $ = function (id) { return document.getElementById(id); };
 
-  /* Main links sit at the top of the sidebar; the account group (Profile,
-     Settings, Archive) is pinned to the bottom. `bottom: true` also puts an
-     entry in the phone's bottom bar. */
+  /* Main links sit at the top of the sidebar. The account links (Profile,
+     Settings) live in the top-right profile menu instead; Archive + Logout
+     stay at the bottom of the panel. `bottom: true` also puts an entry in the
+     phone's bottom bar. */
   var NAV = [
     { key: 'dashboard', label: 'Dashboard', icon: '🏠', href: 'dashboard.html',    group: 'main', bottom: true },
     { key: 'issues',    label: 'Issues',    icon: '📋', href: 'issues.html',       group: 'main', bottom: true },
     { key: 'users',     label: 'Users',     icon: '👥', href: 'users.html',        group: 'main', admin: true },
-    { key: 'profile',   label: 'Profile',   icon: '👤', href: 'profile.html',      group: 'foot', bottom: true },
-    { key: 'settings',  label: 'Settings',  icon: '⚙️', href: 'settings.html',     group: 'foot', bottom: true },
     { key: 'archive',   label: 'Archive',   icon: '🗄️', href: 'recycle-bin.html',  group: 'foot', admin: true, bottom: true }
   ];
 
@@ -100,7 +99,6 @@
     var footLinks = NAV.filter(function (i) { return i.group === 'foot' && allowed(i); }).map(link).join('');
 
     var initial = ET.escapeHtml((user.username || '?').charAt(0).toUpperCase());
-    var roleLabel = admin ? 'Admin' : 'User';
 
     return '' +
       '<div class="sidebar-brand">' +
@@ -112,24 +110,18 @@
 
       '<nav class="nav" aria-label="Main">' + mainLinks + '</nav>' +
 
-      '<nav class="nav sidebar-nav-bottom" aria-label="Account">' + footLinks + '</nav>' +
+      '<nav class="nav sidebar-nav-bottom" aria-label="Archive">' + footLinks + '</nav>' +
 
       '<div class="sidebar-foot">' +
-        '<div class="user-card">' +
-          '<span class="avatar" id="sidebarAvatar">' + initial + '</span>' +
-          '<div class="user-meta">' +
-            '<span class="user-name" id="userChip">' + ET.escapeHtml(user.username) + '</span>' +
-            '<span class="role-chip role-' + ET.escapeHtml(user.role) + '" id="roleChip">' +
-              ET.escapeHtml(roleLabel.toLowerCase()) +
-            '</span>' +
-          '</div>' +
-        '</div>' +
-        '<button type="button" class="btn ghost block" data-install-btn hidden>Install app</button>' +
         '<button type="button" class="btn ghost block" id="logoutBtn">Logout</button>' +
       '</div>';
   }
 
-  function topbarHtml(title) {
+  function topbarHtml(title, user) {
+    var admin = user && user.role === ET.ADMIN;
+    var initial = ET.escapeHtml(((user && user.username) || '?').charAt(0).toUpperCase());
+    var name = ET.escapeHtml((user && user.username) || '');
+
     return '' +
       '<button type="button" class="btn ghost icon menu-btn" id="menuBtn" aria-label="Open menu">☰</button>' +
       '<div class="topbar-heading">' +
@@ -137,6 +129,25 @@
       '</div>' +
       '<div class="topbar-actions">' +
         '<span class="live-dot" id="liveDot" title="Live updates"></span>' +
+        '<div class="role-menu">' +
+          '<button type="button" class="btn profile-btn" id="profileMenuBtn" aria-haspopup="true" aria-expanded="false">' +
+            '<span class="avatar" id="topAvatar">' + initial + '</span>' +
+            '<span class="who" id="topName">' + name + '</span>' +
+            '<span class="caret" aria-hidden="true">▾</span>' +
+          '</button>' +
+          '<div class="role-menu-panel" id="profileMenuPanel" hidden>' +
+            '<div class="menu-head">' +
+              '<span class="avatar" aria-hidden="true">' + initial + '</span>' +
+              '<div>' +
+                '<div class="nm">' + name + '</div>' +
+                '<div class="em">' + (admin ? 'Administrator' : 'User') + '</div>' +
+              '</div>' +
+            '</div>' +
+            '<div class="sep"></div>' +
+            '<a href="profile.html">Profile</a>' +
+            '<a href="settings.html">Settings</a>' +
+          '</div>' +
+        '</div>' +
       '</div>';
   }
 
@@ -184,8 +195,29 @@
     var logout = $('logoutBtn');
     if (logout) logout.addEventListener('click', function (e) { ET.auth.logout(e); });
 
+    /* Top-right profile menu — Profile + Settings live in here. */
+    var profileBtn = $('profileMenuBtn');
+    var profilePanel = $('profileMenuPanel');
+    if (profileBtn && profilePanel) {
+      profileBtn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        var open = profilePanel.hidden;
+        profilePanel.hidden = !open;
+        profileBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      });
+      document.addEventListener('click', function () {
+        if (!profilePanel.hidden) {
+          profilePanel.hidden = true;
+          profileBtn.setAttribute('aria-expanded', 'false');
+        }
+      });
+    }
+
     document.addEventListener('keydown', function (e) {
-      if (e.key === 'Escape') closeSidebar();
+      if (e.key === 'Escape') {
+        if (profilePanel) profilePanel.hidden = true;
+        closeSidebar();
+      }
     });
   }
 

@@ -265,12 +265,6 @@
     var user = await ET.layout.render({ active: 'dashboard', title: 'Dashboard' });
     if (!user) return;
 
-    var greeting = $('dashGreeting');
-    if (greeting) {
-      greeting.textContent = 'Signed in as ' + user.username +
-        ' (' + (ET.auth.isAdmin() ? 'admin' : 'user') + ').';
-    }
-
     var sb = ET.getClient();
     if (!sb) return;
 

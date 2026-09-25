@@ -142,6 +142,28 @@
 .role-menu-panel button:hover { background: var(--surface-2); }
 .role-menu-panel .sep { height: 1px; background: var(--border); margin: .25rem 0; }
 
+/* ------------------------- top-right profile button -------------------- */
+.profile-btn { display: flex; align-items: center; gap: .5rem; padding: .25rem .55rem .25rem .25rem; }
+.profile-btn .avatar { width: 30px; height: 30px; font-size: .78rem; }
+.profile-btn .who {
+  font-weight: 600;
+  font-size: .86rem;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.profile-btn .caret { color: var(--muted); font-size: .7rem; }
+
+.role-menu-panel .menu-head { display: flex; gap: .6rem; align-items: center; padding: .5rem .55rem .6rem; }
+.role-menu-panel .menu-head .avatar { width: 34px; height: 34px; font-size: .85rem; }
+.role-menu-panel .menu-head .nm { font-weight: 650; font-size: .88rem; }
+.role-menu-panel .menu-head .em { color: var(--muted); font-size: .76rem; }
+
+@media (max-width: 560px) {
+  .profile-btn .who { display: none; }   /* avatar only on small phones */
+}
+
 /* =============================== content =============================== */
 .page-content {
   padding: 1.5rem 1.25rem 3rem;
