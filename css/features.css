@@ -226,6 +226,11 @@
   display: grid; place-items: center;
   border: 2px solid var(--surface);
 }
+/* Anchor the panel to the right edge of the top bar rather than the bell,
+   which sits to the left of the profile button. */
+.notif-wrap { position: static; }
+.topbar-actions { position: relative; }
+
 .notif-panel { width: 330px; max-width: 92vw; padding: 0; }
 .notif-head {
   display: flex; align-items: center; justify-content: space-between; gap: .5rem;

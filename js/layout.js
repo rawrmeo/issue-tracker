@@ -138,7 +138,7 @@
       '</div>' +
       '<div class="topbar-actions">' +
         '<span class="live-dot" id="liveDot" title="Live updates"></span>' +
-        '<div class="role-menu">' +
+        '<div class="role-menu notif-wrap">' +
           '<button type="button" class="btn ghost icon notif-btn" id="notifBtn" aria-label="Notifications" aria-haspopup="true" aria-expanded="false">' +
             '🔔<span class="dot" id="notifDot" hidden>0</span>' +
           '</button>' +
