@@ -4,6 +4,10 @@ A guide to how the Issue Tracker is put together and how a request moves through
 it. The diagrams are [Mermaid](https://mermaid.js.org/) and render directly on
 GitHub.
 
+> Taking the project over? Start with **[`HANDOVER.md`](HANDOVER.md)** — it has
+> the abstract, a file-by-file repo map, and every left-panel screen walked
+> through one by one.
+
 ---
 
 ## 1. System architecture (the big picture)

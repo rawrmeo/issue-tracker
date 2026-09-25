@@ -59,6 +59,7 @@ Only admins can change the status of an issue
 | `supabase-config.js` | **Your** project URL + anon key (you fill this in) |
 | `supabase/schema.sql` | Tables, RLS policies, triggers - run once |
 | `ARCHITECTURE.md` | System architecture + process-flow diagrams (Mermaid) |
+| `HANDOVER.md` | Complete handover guide: abstract, repo map, and every left-panel item walked through with a flowchart |
 | `SETUP.md` | Step-by-step database setup |
 | `vercel.json` | Vercel config (clean URLs, security headers) |
 | `deploy.ps1` | Windows helper: commit + push in one command |
