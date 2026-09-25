@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Flowcharts · Issue Tracker</title>
+<style>
+  :root { --bg:#f6f7fb; --surface:#fff; --border:#e3e5ee; --text:#1b1d29; --muted:#6b7186; --accent:#4f46e5; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--text);
+         font:15px/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; }
+  header { position:sticky; top:0; z-index:5; background:rgba(255,255,255,.92); backdrop-filter:blur(10px);
+           border-bottom:1px solid var(--border); padding:14px 22px; }
+  header h1 { margin:0; font-size:18px; }
+  header p { margin:3px 0 0; color:var(--muted); font-size:13px; }
+  main { padding:22px; max-width:1200px; margin:0 auto; display:grid; gap:22px; }
+  .card { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:18px 20px;
+          box-shadow:0 1px 2px rgba(20,22,40,.05), 0 8px 24px rgba(20,22,40,.06); }
+  .card h2 { margin:0 0 2px; font-size:15px; }
+  .card .src { margin:0 0 14px; color:var(--muted); font-size:12px; }
+  .n { display:inline-grid; place-items:center; min-width:22px; height:22px; padding:0 6px; margin-right:8px;
+       border-radius:999px; background:var(--accent); color:#fff; font-size:12px; font-weight:700; vertical-align:middle; }
+  .mermaid { display:flex; justify-content:center; overflow:auto; }
+  .mermaid svg { max-width:100%; height:auto; }
+  .err { color:#dc2626; font:12px/1.5 ui-monospace, Consolas, monospace; white-space:pre-wrap;
+         background:#fdecec; border-radius:8px; padding:10px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Issue Tracker — flowcharts</h1>
+  <p>28 diagrams, rendered from HANDOVER.md and ARCHITECTURE.md</p>
+</header>
+<main>
+  <section class="card">
+    <h2><span class="n">1</span>0. Abstract</h2>
+    <p class="src">HANDOVER.md</p>
+    <pre class="mermaid">flowchart LR
+  U["👤 Reporter / Admin"] --&gt; B["Browser"]
+  B --&gt;|"HTML · CSS · JS"| V["▲ Vercel (static)"]
+  B --&gt;|"login + data + realtime"| S["🐘 Supabase&lt;br/&gt;Auth · Postgres · RLS"]</pre>
+  </section>
+  <section class="card">
+    <h2><span class="n">2</span>1. Technology</h2>
+    <p class="src">HANDOVER.md</p>
+    <pre class="mermaid">flowchart TB
+  subgraph Front["Front end (Vercel, static)"]
+    P["HTML pages"] --- J["js/*.js modules"] --- C["styles.css + css/*"]
+  end
+  subgraph Back["Back end (Supabase)"]
+    AU["Auth"] --- PG["Postgres"] --- RL["RLS · triggers · RPC"]
+  end
+  Front --&gt;|"https + wss"| Back</pre>
+  </section>
+  <section class="card">
+    <h2><span class="n">3</span>3. Data model</h2>
+    <p class="src">HANDOVER.md</p>
+    <pre class="mermaid">erDiagram
+  profiles ||--o{ issues : "author_id"
+  profiles {
+    uuid id PK
+    text username
+    text role "admin | user"
+    timestamptz created_at
+  }
+  issues {
+    uuid id PK
+    text title
+    text description
+    text priority "low | medium | high"
+    text status "pending | fixing | done"
+    text label
+    uuid author_id FK
+    timestamptz created_at
+    timestamptz updated_at
+    timestamptz completed_at
+    timestamptz deleted_at "recycle bin"
+    text admin_note
+    timestamptz admin_note_at
+  }
+  backups {
+    uuid id PK
+    timestamptz created_at
+    text kind "auto | manual"
+    int issue_count
+    jsonb payload
+  }
+  app_settings {
+    bool id PK
+    bool auto_backup_enabled
+  }</pre>
+  </section>
+  <section class="card">
+    <h2><span class="n">4</span>4. Security model</h2>
+    <p class="src">HANDOVER.md</p>
+    <pre class="mermaid">flowchart TB
+  R["Request from the browser (JWT)"] --&gt; RLS{"Row Level Security&lt;br/&gt;which ROWS?"}
+  RLS --&gt;|select| P1["issues are readable&lt;br/&gt;and deleted_at is null"]
+  RLS --&gt;|insert| P2["create issues&lt;br/&gt;author_id = auth.uid()"]
+  RLS --&gt;|update| P3["update own issue or admin"]
+  RLS --&gt;|delete| P4["delete own issue or admin"]
+  RLS --&gt;|"profiles"| P5["own row, or admin"]
+
+  P2 --&gt; G["Trigger: guard_issue_changes()"]
+  P3 --&gt; G
+  G --&gt;|"non-admin changes status"| X["❌ rejected in the DB"]
+  G --&gt;|ok| OK["✅ saved (updated_at / completed_at set here)"]</pre>
+  </section>
+  <section class="card">
+    <h2><span class="n">5</span>5. The left panel, one by one</h2>
+    <p class="src">HANDOVER.md</p>
+    <pre class="mermaid">flowchart TD
+  A["Page opens"] --&gt; B["layout.js: apply saved theme"]
+  B --&gt; C["auth.guard()"]
+  C --&gt;|"no session"| Z["→ index.html"]
+  C --&gt;|"session"| D["build sidebar + topbar + bottom nav"]
+  D --&gt; E{"requireAdmin page?"}
+  E --&gt;|"yes, not admin"| Y["→ dashboard.html"]
+  E --&gt;|"ok"| F["page script loads its data"]</pre>
+  </section>
+  <section class="card">
+    <h2><span class="n">6</span>5.1 🏠 Dashboard</h2>
+    <p class="src">HANDOVER.md</p>
+    <pre class="mermaid">flowchart TD
+  A["Open Dashboard"] --&gt; B["guard + layout"]
+  B --&gt; C["load issues + profiles"]
+  C --&gt; D["Stat cards&lt;br/&gt;Total · Pending · Fixing · Done · High"]
+  C --&gt; E["Chart.js — issues per month, 12 months"]
+  C --&gt; F["Recent activity — last 10 events&lt;br/&gt;(derived from created/updated/completed)"]
+  C --&gt; G["Most repeated issues&lt;br/&gt;titles that appear more than once"]
+  G --&gt; H["click-through only; read-only view"]</pre>
+  </section>
+  <section class="card">
+    <h2><span class="n">7</span>5.2 📋 Issues — the board</h2>
+    <p class="src">HANDOVER.md</p>
+    <pre class="mermaid">flowchart TD
+  A["Open Issues"] --&gt; B["guard + layout"]
+  B --&gt; C{"Admin?"}
+  C --&gt;|"yes"| D["show status dropdown, bulk tick-boxes, Export, Clear done"]
+  C --&gt;|"no"| E["hide them; own issues only for edit/delete"]
+  B --&gt; F["load issues + profiles → render cards"]
+  F --&gt; G{"What does the user do?"}
+
+  G --&gt;|"Report an issue"| H["insert issues row&lt;br/&gt;status = pending, author = me"]
+  G --&gt;|"Edit"| I["update row&lt;br/&gt;(title/description/priority + admin message)"]
+  G --&gt;|"Change status"| J["update status&lt;br/&gt;admins only"]
+  G --&gt;|"Tick rows → bulk bar"| K["update many / soft-delete many"]
+  G --&gt;|"Delete"| L["soft delete → Recycle bin"]
+  G --&gt;|"Search / filter / sort"| M["client-side, no round trip"]
+  G --&gt;|"Keyboard"| N["/ search · N new · ? help · Esc close"]
+
+  H --&gt; O["refresh() + Realtime updates every open tab"]
+  I --&gt; O
+  J --&gt; O
+  K --&gt; O
+  L --&gt; O</pre>
+  </section>
+  <section class="card">
+    <h2><span class="n">8</span>5.3 👥 Users (admin)</h2>
+    <p class="src">HANDOVER.md</p>
+    <pre class="mermaid">flowchart TD
+  A["Open Users"] --&gt; B["layout.render(requireAdmin)"]
+  B --&gt;|"not admin"| Z["→ dashboard"]
+  B --&gt; C["select profiles"]
+  C --&gt; D["list users + role + joined date"]
+  D --&gt; E{"Make admin / Make user"}
+  E --&gt; F["update profiles.role"]
+  F --&gt; G["RLS + guard: admins only"]
+  G --&gt; H["reload list"]</pre>
+  </section>
+  <section class="card">
+    <h2><span class="n">9</span>5.4 👤 Profile</h2>
+    <p class="src">HANDOVER.md</p>
+    <pre class="mermaid">flowchart TD
+  A["Open Profile"] --&gt; B["guard + layout"]
+  B --&gt; C["show username, role, masked email, joined, id"]
+  C --&gt; D["Change password form"]
+  D --&gt; E["signInWithPassword(current) to verify"]
+  E --&gt;|bad| F["'current password is incorrect'"]
+  E --&gt;|ok| G["auth.updateUser({ password })"]
+  G --&gt; H["success toast"]</pre>
+  </section>
+  <section class="card">
+    <h2><span class="n">10</span>5.5 ⚙️ Settings</h2>
+    <p class="src">HANDOVER.md</p>
+    <pre class="mermaid">flowchart TD
+  A["Open Settings"] --&gt; B["guard + layout"]
+  B --&gt; C["Appearance: Auto / Light / Night&lt;br/&gt;→ localStorage it.theme"]
+  B --&gt; D["Clear all filters (localStorage)"]
+  B --&gt; E["Logout"]
+  B --&gt; F{"Admin?"}
+  F --&gt;|"no"| G["done"]
+  F --&gt;|"yes"| H["Automatic backups card"]
+  H --&gt; I["toggle auto_backup_enabled"]
+  H --&gt; J["Back up now → rpc create_backup()"]
+  H --&gt; K["snapshot list → Restore → rpc restore_backup(id)"]</pre>
+  </section>
+  <section class="card">
+    <h2><span class="n">11</span>5.6 Admin status pages (Reported · Pending · Fixing · Done · All issues)</h2>
+    <p class="src">HANDOVER.md</p>
+    <pre class="mermaid">flowchart TD
+  A["Open admin-pending.html"] --&gt; B["page-issues.js renders the board"]
+  A --&gt; C["page-admin.js"]
+  C --&gt; D["guardAdmin: non-admins → issues.html"]
+  C --&gt; E["set the page title from body[data-admin-status]"]
+  C --&gt; F["click the matching status button&lt;br/&gt;(reuses page-issues.js filtering)"]
+  C --&gt; G["wrap 'Done' changes in a confirm dialog"]
+  F --&gt; H["list shown = that status only"]</pre>
+  </section>
+  <section class="card">
+    <h2><span class="n">12</span>5.7 🗑️ Recycle bin (admin)</h2>
+    <p class="src">HANDOVER.md</p>
+    <pre class="mermaid">sequenceDiagram
+  actor A as Admin or reporter
+  participant App as Issues page
+  participant DB as Postgres
+  A-&gt;&gt;App: Delete an issue
+  App-&gt;&gt;DB: update issues set deleted_at = now()
+  Note over DB: the "readable" policy hides it everywhere
+  A-&gt;&gt;App: open Recycle bin
+  App-&gt;&gt;DB: rpc list_deleted_issues()
+  DB--&gt;&gt;App: binned rows
+  A-&gt;&gt;App: Restore → rpc restore_issue(id)
+  A-&gt;&gt;App: Empty → rpc empty_recycle_bin()</pre>
+  </section>
+  <section class="card">
+    <h2><span class="n">13</span>Live updates</h2>
+    <p class="src">HANDOVER.md</p>
+    <pre class="mermaid">flowchart LR
+  T["Any change to issues/profiles"] --&gt; RT["Supabase Realtime (WSS)"]
+  RT --&gt; P["every open tab calls refresh({silent:true})"]
+  P --&gt; R["list re-renders — no page reload"]</pre>
+  </section>
+  <section class="card">
+    <h2><span class="n">14</span>Appearance (Auto / Light / Night)</h2>
+    <p class="src">HANDOVER.md</p>
+    <pre class="mermaid">flowchart LR
+  L["layout.js"] --&gt; K{"localStorage it.theme"}
+  K --&gt;|"dark / light"| AT["data-theme attribute set"]
+  K --&gt;|"auto (absent)"| N["attribute removed →&lt;br/&gt;CSS prefers-color-scheme decides"]</pre>
+  </section>
+  <section class="card">
+    <h2><span class="n">15</span>Install as an app (PWA)</h2>
+    <p class="src">HANDOVER.md</p>
+    <pre class="mermaid">flowchart LR
+  M["manifest.json + sw.js + icons"] --&gt; B["beforeinstallprompt"]
+  B --&gt; BTN["Install app button (sidebar / sign-in)"]
+  BTN --&gt; P["browser install prompt"]
+  SW["sw.js network-first cache"] --&gt; OFF["opens offline"]</pre>
+  </section>
+  <section class="card">
+    <h2><span class="n">16</span>Automatic backups</h2>
+    <p class="src">HANDOVER.md</p>
+    <pre class="mermaid">flowchart LR
+  C["Any change to issues"] --&gt; T["trigger issues_auto_backup"]
+  T --&gt; AS["auto_snapshot()"]
+  AS --&gt;|"due (max hourly)"| SN["snapshot_issues() → JSON row"]
+  AS --&gt;|"off, or recently done"| N["no-op"]
+  AD["Admin: Back up now"] --&gt; CB["create_backup()"] --&gt; SN
+  RT["Admin: Restore"] --&gt; RB["restore_backup(id)"]
+  RB --&gt; S1["1. safety snapshot"] --&gt; SN
+  RB --&gt; S2["2. replace issues from the snapshot"]
+  SN --&gt; KEEP["keep newest 30"]</pre>
+  </section>
+  <section class="card">
+    <h2><span class="n">17</span>7. One request, end to end</h2>
+    <p class="src">HANDOVER.md</p>
+    <pre class="mermaid">sequenceDiagram
+  actor U as Admin
+  participant P as issues.html + page-issues.js
+  participant API as Supabase PostgREST
+  participant DB as Postgres
+  U-&gt;&gt;P: set status to Done
+  P-&gt;&gt;API: update issues set status='done'
+  API-&gt;&gt;DB: apply
+  DB-&gt;&gt;DB: RLS — author or admin? ✅
+  DB-&gt;&gt;DB: guard_issue_changes() — admin? ✅ (sets completed_at)
+  DB-&gt;&gt;DB: issues_auto_backup → maybe snapshot
+  DB--&gt;&gt;API: row
+  API--&gt;&gt;P: 200 OK
+  API--&gt;&gt;P: Realtime event → other tabs refresh
+  P--&gt;&gt;U: toast "Status changed to Done"</pre>
+  </section>
+  <section class="card">
+    <h2><span class="n">18</span>Deploy</h2>
+    <p class="src">HANDOVER.md</p>
+    <pre class="mermaid">flowchart LR
+  D["Edit files"] --&gt; G["git commit + push"]
+  G --&gt; GH["GitHub: rawrmeo/issue-tracker"]
+  GH --&gt; V["Vercel builds &amp; deploys"]
+  V --&gt; L["https://…vercel.app"]</pre>
+  </section>
+  <section class="card">
+    <h2><span class="n">19</span>1. System architecture (the big picture)</h2>
+    <p class="src">ARCHITECTURE.md</p>
+    <pre class="mermaid">flowchart TB
+  subgraph Device["📱 Phone  /  💻 Desktop"]
+    Browser["Browser or installed PWA"]
+    SW["Service worker (sw.js)&lt;br/&gt;caches the shell, serves it offline"]
+  end
+
+  subgraph Vercel["▲ Vercel — static hosting (HTTPS)"]
+    Static["index.html · pages/*.html&lt;br/&gt;styles.css · css/*&lt;br/&gt;js/* · manifest.json · icons"]
+  end
+
+  subgraph Supabase["🐘 Supabase"]
+    Auth["Auth&lt;br/&gt;email + password (JWT)"]
+    DB["Postgres&lt;br/&gt;profiles · issues · backups · app_settings"]
+    Guard["Row Level Security&lt;br/&gt;+ triggers + RPC functions"]
+  end
+
+  Browser --&gt;|"GET (HTML/CSS/JS)"| Static
+  Browser --&gt;|"sign in / sign up"| Auth
+  Browser --&gt;|"PostgREST + Realtime (WSS)"| DB
+  DB --- Guard
+  Browser -.-&gt;|"install / offline"| SW</pre>
+  </section>
+  <section class="card">
+    <h2><span class="n">20</span>2. Page and module map</h2>
+    <p class="src">ARCHITECTURE.md</p>
+    <pre class="mermaid">flowchart LR
+  subgraph Shared["Shared (loaded by every page)"]
+    SB["js/supabase.js&lt;br/&gt;client, helpers, constants"]
+    T["js/toast.js"]
+    M["js/modal.js"]
+    AU["js/auth.js&lt;br/&gt;guard, login, logout"]
+    L["js/layout.js&lt;br/&gt;sidebar + topbar + theme + bottom nav"]
+    S["js/sidebar.js&lt;br/&gt;admin links"]
+    I["js/install.js&lt;br/&gt;Install app button"]
+  end
+
+  IDX["index.html&lt;br/&gt;(sign in / sign up)"] --&gt; SB
+  IDX --&gt; AU
+
+  subgraph App["App pages (pages/*.html)"]
+    D["dashboard.html"] --&gt; P1["page-dashboard.js"]
+    IS["issues.html"] --&gt; P2["page-issues.js"]
+    AD["admin-*.html"] --&gt; P3["page-admin.js"]
+    U["users.html · admin-users.html"] --&gt; P4["page-users.js"]
+    PR["profile.html"] --&gt; P5["page-profile.js"]
+    SE["settings.html"] --&gt; P6["page-settings.js"]
+    RB["recycle-bin.html"] --&gt; P7["page-bin.js"]
+  end
+
+  Shared --&gt; App</pre>
+  </section>
+  <section class="card">
+    <h2><span class="n">21</span>3. Sign-in flow</h2>
+    <p class="src">ARCHITECTURE.md</p>
+    <pre class="mermaid">sequenceDiagram
+  actor U as User
+  participant P as index.html
+  participant A as Supabase Auth
+  participant DB as Postgres (profiles)
+
+  U-&gt;&gt;P: username + password
+  P-&gt;&gt;P: username → "&lt;name&gt;@example.com"
+  P-&gt;&gt;A: signInWithPassword
+  A--&gt;&gt;P: session (JWT)
+  P-&gt;&gt;DB: select role from profiles
+  DB--&gt;&gt;P: role = admin | user
+  P-&gt;&gt;P: layout.js builds sidebar/topbar from the role
+  P--&gt;&gt;U: redirect to pages/dashboard.html</pre>
+  </section>
+  <section class="card">
+    <h2><span class="n">22</span>4. Data model</h2>
+    <p class="src">ARCHITECTURE.md</p>
+    <pre class="mermaid">erDiagram
+  profiles ||--o{ issues : "author_id"
+
+  profiles {
+    uuid   id PK
+    text   username
+    text   role
+    timestamptz created_at
+  }
+
+  issues {
+    uuid   id PK
+    text   title
+    text   description
+    text   priority "low | medium | high"
+    text   status   "pending | fixing | done"
+    text   label
+    uuid   author_id FK
+    timestamptz created_at
+    timestamptz updated_at
+    timestamptz completed_at
+    timestamptz deleted_at   "recycle bin"
+    text   admin_note
+    timestamptz admin_note_at
+  }
+
+  backups {
+    uuid   id PK
+    timestamptz created_at
+    text   kind "auto | manual"
+    int    issue_count
+    jsonb  payload "whole issues table"
+  }
+
+  app_settings {
+    bool id PK
+    bool auto_backup_enabled
+  }</pre>
+  </section>
+  <section class="card">
+    <h2><span class="n">23</span>5. Security flow (defence in depth)</h2>
+    <p class="src">ARCHITECTURE.md</p>
+    <pre class="mermaid">flowchart TB
+  R["Browser request (JWT)"] --&gt; POL{"RLS policy for the operation"}
+
+  POL --&gt;|select| S1["issues are readable&lt;br/&gt;deleted_at is null"]
+  POL --&gt;|insert| S2["create issues&lt;br/&gt;author_id = auth.uid()&lt;br/&gt;and status = 'pending'"]
+  POL --&gt;|update| S3["update own issue or admin"]
+  POL --&gt;|delete| S4["delete own issue or admin"]
+
+  S3 --&gt; G{"Trigger: guard_issue_changes()"}
+  S2 --&gt; G2{"handle_new_user()&lt;br/&gt;computes the role&lt;br/&gt;never trusts the client"}
+  G --&gt;|"non-admin changes status"| X["❌ 'Only admins can change the status'"]
+  G --&gt;|ok| OK["✅ row saved"]</pre>
+  </section>
+  <section class="card">
+    <h2><span class="n">24</span>6. Issue lifecycle</h2>
+    <p class="src">ARCHITECTURE.md</p>
+    <pre class="mermaid">stateDiagram-v2
+  [*] --&gt; pending: reporter files it
+  pending --&gt; fixing: admin picks it up
+  fixing --&gt; done: admin fixes it
+  done --&gt; fixing: reopened
+  fixing --&gt; pending: back to the queue
+
+  pending --&gt; bin: delete (soft)
+  fixing --&gt; bin: delete (soft)
+  done --&gt; bin: delete (soft)
+  bin --&gt; pending: restore (keeps its old status)</pre>
+  </section>
+  <section class="card">
+    <h2><span class="n">25</span>7. Recycle bin flow</h2>
+    <p class="src">ARCHITECTURE.md</p>
+    <pre class="mermaid">sequenceDiagram
+  actor A as Admin (or the reporter)
+  participant App as Issues page
+  participant DB as Postgres
+
+  A-&gt;&gt;App: Delete an issue
+  App-&gt;&gt;DB: update issues set deleted_at = now()
+  Note over DB: the "readable" policy hides it from every query
+
+  A-&gt;&gt;App: open Recycle bin
+  App-&gt;&gt;DB: rpc list_deleted_issues()
+  DB--&gt;&gt;App: binned rows (admin check inside the function)
+  A-&gt;&gt;App: Restore
+  App-&gt;&gt;DB: rpc restore_issue(id)  →  deleted_at = null
+  A-&gt;&gt;App: Empty recycle bin
+  App-&gt;&gt;DB: rpc empty_recycle_bin()  →  delete forever</pre>
+  </section>
+  <section class="card">
+    <h2><span class="n">26</span>8. Automatic backups</h2>
+    <p class="src">ARCHITECTURE.md</p>
+    <pre class="mermaid">flowchart LR
+  C["Any change to issues"] --&gt; T["trigger issues_auto_backup&lt;br/&gt;(after insert / update / delete)"]
+  T --&gt; AS["auto_snapshot()"]
+  AS --&gt;|"off, or one taken this hour"| N["do nothing"]
+  AS --&gt;|due| SN["snapshot_issues()&lt;br/&gt;issues → JSON"]
+  SN --&gt; BK[("backups")]
+
+  AD["Admin: Back up now"] --&gt; CB["create_backup()"] --&gt; SN
+  RT["Admin: Restore"] --&gt; RB["restore_backup(id)"]
+  RB --&gt;|"1. safety snapshot"| SN
+  RB --&gt;|"2. replace issues"| ISS[("issues")]
+  SN --&gt;|keep newest 30| BK</pre>
+  </section>
+  <section class="card">
+    <h2><span class="n">27</span>9. Deployment &amp; install flow</h2>
+    <p class="src">ARCHITECTURE.md</p>
+    <pre class="mermaid">flowchart LR
+  Dev["Edit files in VS Code"] --&gt; Git["git commit + push"]
+  Git --&gt; GH[("GitHub&lt;br/&gt;rawrmeo/issue-tracker")]
+  GH --&gt; Ver["Vercel builds &amp; deploys"]
+  Ver --&gt; Live["https://…vercel.app"]
+  Live --&gt; SW["sw.js caches the shell"]
+  SW --&gt; PWA["“Install app” on the phone"]</pre>
+  </section>
+  <section class="card">
+    <h2><span class="n">28</span>10. One typical request, end to end</h2>
+    <p class="src">ARCHITECTURE.md</p>
+    <pre class="mermaid">sequenceDiagram
+  actor U as Admin
+  participant Page as issues.html + page-issues.js
+  participant API as Supabase PostgREST
+  participant DB as Postgres (RLS + triggers)
+
+  U-&gt;&gt;Page: change a status to Done
+  Page-&gt;&gt;API: update issues set status='done' where id=…
+  API-&gt;&gt;DB: apply update
+  DB-&gt;&gt;DB: RLS — am I the author or an admin? ✅
+  DB-&gt;&gt;DB: guard_issue_changes() — is an admin doing this? ✅
+  DB-&gt;&gt;DB: completed_at = now(), updated_at = now()
+  DB-&gt;&gt;DB: issues_auto_backup → maybe snapshot
+  DB--&gt;&gt;API: updated row
+  API--&gt;&gt;Page: 200 OK
+  Page-&gt;&gt;Page: refresh() → re-render
+  API--&gt;&gt;Page: Realtime event → other open tabs refresh too
+  Page--&gt;&gt;U: toast "Status changed to Done"</pre>
+  </section>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>
+  mermaid.initialize({
+    startOnLoad: true,
+    securityLevel: 'loose',
+    theme: window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'default',
+    flowchart: { useMaxWidth: true, htmlLabels: true },
+    themeVariables: { fontFamily: 'ui-sans-serif, system-ui, "Segoe UI", Roboto, Arial' }
+  });
+  window.addEventListener('error', function (e) {
+    var pre = e.target && e.target.closest && e.target.closest('.mermaid');
+    if (pre && pre.parentNode) {
+      var box = document.createElement('div');
+      box.className = 'err';
+      box.textContent = 'This diagram failed to render: ' + (e.message || e.type);
+      pre.parentNode.replaceChild(box, pre);
+    }
+  }, true);
+</script>
+</body>
+</html>

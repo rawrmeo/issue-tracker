@@ -60,6 +60,7 @@ Only admins can change the status of an issue
 | `supabase/schema.sql` | Tables, RLS policies, triggers - run once |
 | `ARCHITECTURE.md` | System architecture + process-flow diagrams (Mermaid) |
 | `HANDOVER.md` | Complete handover guide: abstract, repo map, and every left-panel item walked through with a flowchart |
+| `flowcharts.html` | All 28 diagrams rendered on one page — just open it in a browser |
 | `SETUP.md` | Step-by-step database setup |
 | `vercel.json` | Vercel config (clean URLs, security headers) |
 | `deploy.ps1` | Windows helper: commit + push in one command |
