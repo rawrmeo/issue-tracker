@@ -46,3 +46,36 @@ self.addEventListener("fetch", function (event) {
       })
   );
 });
+
+/* ------------------------------ push messages ----------------------------
+   A push arrives from the database (see sql/push_notifications.sql and the
+   send-push Edge Function). Show it as an OS notification, and open/focus the
+   app when it is tapped. */
+
+self.addEventListener("push", function (event) {
+  var data = {};
+  try { data = event.data ? event.data.json() : {}; } catch (e) { /* not JSON */ }
+
+  event.waitUntil(
+    self.registration.showNotification(data.title || "Issue Tracker", {
+      body: data.body || "",
+      icon: "./icon-192.png",
+      badge: "./icon-192.png",
+      data: { url: data.url || "./" }
+    })
+  );
+});
+
+self.addEventListener("notificationclick", function (event) {
+  event.notification.close();
+  var target = (event.notification.data && event.notification.data.url) || "./";
+
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(function (list) {
+      for (var i = 0; i < list.length; i++) {
+        if ("focus" in list[i]) return list[i].focus();
+      }
+      if (self.clients.openWindow) return self.clients.openWindow(target);
+    })
+  );
+});

@@ -42,6 +42,42 @@
     ET.toast('Filters cleared.');
   }
 
+  /* ------------------------------ notifications -------------------------- */
+
+  function initPush() {
+    var toggle = $('pushToggle');
+    var note = $('pushNote');
+    if (!toggle || !note) return;
+
+    function say(text) { note.textContent = text; }
+
+    if (!ET.push || !ET.push.supported()) {
+      toggle.disabled = true;
+      say('This browser does not support notifications.');
+      return;
+    }
+    if (!ET.push.configured()) {
+      toggle.disabled = true;
+      say('Not set up yet — add your VAPID public key to supabase-config.js.');
+      return;
+    }
+
+    ET.push.isEnabled().then(function (on) {
+      toggle.checked = on;
+      say(on ? 'On for this device.' : 'Off for this device.');
+    });
+
+    toggle.addEventListener('change', function () {
+      toggle.disabled = true;
+      var work = toggle.checked ? ET.push.enable() : ET.push.disable();
+      work.then(function (result) {
+        toggle.disabled = false;
+        toggle.checked = !!result;
+        say(result ? 'On for this device.' : 'Off for this device.');
+      });
+    });
+  }
+
   /* --------------------------- automatic backups ------------------------- */
 
   var backups = [];
@@ -163,6 +199,7 @@
     }
 
     if (ET.auth.isAdmin()) initBackups();
+    initPush();
 
     var clearBtn = $('clearFiltersBtn');
     if (clearBtn) clearBtn.addEventListener('click', clearAllFilters);

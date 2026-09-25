@@ -245,7 +245,38 @@ A service worker caches the shell, so it also opens when the phone is offline
 
 > **One-time database step.** Run these in Supabase → SQL Editor → Run (or just
 > run the whole `supabase/schema.sql`, which includes them):
-> `sql/admin_note.sql`, `sql/recycle_bin.sql`, `sql/backups.sql`.
+> `sql/admin_note.sql`, `sql/recycle_bin.sql`, `sql/backups.sql`,
+> `sql/push_notifications.sql`.
+
+### Push notifications (optional)
+
+A reporter can be told on their phone — even with the app closed — when an admin
+leaves a message or marks their issue done. It needs one Edge Function as the
+sender, because a browser cannot send itself a push.
+
+1. Run `sql/push_notifications.sql` in the SQL Editor.
+2. Generate a key pair (once):
+   ```powershell
+   npx web-push generate-vapid-keys
+   ```
+3. Paste the **public** key into `supabase-config.js` → `vapidPublicKey`.
+4. Deploy the sender and give it the keys:
+   ```powershell
+   supabase functions deploy send-push
+   supabase secrets set VAPID_PUBLIC_KEY=... VAPID_PRIVATE_KEY=... `
+                         VAPID_SUBJECT=mailto:you@example.com `
+                         PUSH_SHARED_SECRET=<a long random string>
+   ```
+5. Point the trigger at it:
+   ```sql
+   update public.app_settings
+      set push_function_url  = 'https://<your-ref>.supabase.co/functions/v1/send-push',
+          push_shared_secret = '<the same long random string>';
+   ```
+
+Then, on the phone: **Settings → Notifications → Push notifications** on, and
+allow the browser prompt. Until step 3 is done the switch says *"Not set up
+yet"*, and nothing else in the app is affected.
 
 > **Want sample data?** `sql/demo_data.sql` fills the board with 14 demo
 > issues — varied statuses, a repeated title and several older than a week.

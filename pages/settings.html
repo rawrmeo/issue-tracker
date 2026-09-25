@@ -71,6 +71,22 @@
           <p class="inline-note" id="settingsStatus" role="status"></p>
         </section>
 
+        <section class="card panel" id="pushPanel">
+          <div class="panel-head">
+            <h2>Notifications</h2>
+            <p class="muted">Get told on this device when an admin messages you or marks your issue done.</p>
+          </div>
+          <div class="setting-row">
+            <div class="setting-text">
+              <span class="name">Push notifications</span>
+              <span class="muted small" id="pushNote">Checking this device…</span>
+            </div>
+            <div class="setting-control">
+              <input type="checkbox" class="switch" id="pushToggle" aria-label="Push notifications" />
+            </div>
+          </div>
+        </section>
+
         <section class="card panel" id="backupPanel" hidden>
           <div class="panel-head">
             <h2>Automatic backups</h2>
@@ -106,6 +122,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="../supabase-config.js"></script>
   <script src="../js/install.js"></script>
+  <script src="../js/push.js"></script>
   <script src="../js/supabase.js"></script>
   <script src="../js/toast.js"></script>
   <script src="../js/modal.js"></script>
