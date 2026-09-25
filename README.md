@@ -235,8 +235,8 @@ A service worker caches the shell, so it also opens when the phone is offline
 - **Keyboard shortcuts** — on the Issues page: `/` search, `N` new issue,
   `?` help, `Esc` close.
 - **Appearance** — Settings now offers **Auto / Light / Night**.
-- **Recycle bin** — deleting an issue now bins it instead of erasing it. Admins
-  open **Recycle bin** in the sidebar to restore one or empty the bin.
+- **Archive** — deleting an issue moves it to the Archive instead of erasing
+  it. Admins open **Archive** in the sidebar to restore one or empty it.
 - **Install app** — an **Install app** button (sidebar and sign-in page) turns
   the site into a home-screen app on phones.
 - **Automatic backups (admins)** — Settings → **Automatic backups**. The

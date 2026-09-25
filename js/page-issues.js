@@ -345,8 +345,8 @@
     if (!issue) return;
     if (!canManage(issue)) { toast('You can only delete your own issues.'); return; }
 
-    var ok = await ET.confirm('Move “' + issue.title + '” to the recycle bin? An admin can restore it.',
-      { title: 'Delete issue', okLabel: 'Move to bin' });
+    var ok = await ET.confirm('Move “' + issue.title + '” to the archive? An admin can restore it.',
+      { title: 'Delete issue', okLabel: 'Move to archive' });
     if (!ok) return;
 
     // Soft delete: the row stays in the database, hidden, until the bin is emptied.
@@ -358,7 +358,7 @@
     if (editingId === id) resetIssueForm();
     delete selection[id];
     await refresh({ silent: true });
-    toast(result.fellBack ? 'Issue deleted.' : 'Moved to the recycle bin.');
+    toast(result.fellBack ? 'Issue deleted.' : 'Moved to the archive.');
   }
 
   async function clearDone() {
@@ -366,7 +366,7 @@
     var done = issues.filter(function (i) { return i.status === 'done'; });
     if (!done.length) { toast('No done issues to clear.'); return; }
 
-    var ok = await ET.confirm('Move ' + done.length + ' done issue(s) to the recycle bin?',
+    var ok = await ET.confirm('Move ' + done.length + ' done issue(s) to the archive?',
       { title: 'Clear done issues', okLabel: 'Move ' + done.length });
     if (!ok) return;
 
@@ -378,7 +378,7 @@
     await refresh({ silent: true });
     toast(result.fellBack
       ? ('Cleared ' + done.length + ' done issue(s).')
-      : ('Moved ' + done.length + ' done issue(s) to the recycle bin.'));
+      : ('Moved ' + done.length + ' done issue(s) to the archive.'));
   }
 
   /* ------------------------------ rendering ------------------------------ */
@@ -518,7 +518,7 @@
     if (!isAdmin()) return;
     var ids = selectedIds();
     if (!ids.length) return;
-    var ok = await ET.confirm('Move ' + ids.length + ' selected issue(s) to the recycle bin?',
+    var ok = await ET.confirm('Move ' + ids.length + ' selected issue(s) to the archive?',
       { title: 'Delete issues', okLabel: 'Move ' + ids.length });
     if (!ok) return;
     var result = await binIssue(
@@ -531,7 +531,7 @@
     await refresh({ silent: true });
     toast(result.fellBack
       ? ('Deleted ' + ids.length + ' issue(s).')
-      : ('Moved ' + ids.length + ' issue(s) to the recycle bin.'));
+      : ('Moved ' + ids.length + ' issue(s) to the archive.'));
   }
 
   function bulkSelectAll() {

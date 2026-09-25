@@ -1,9 +1,9 @@
 /* ============================================================================
  * js/page-bin.js
  * ----------------------------------------------------------------------------
- * The Recycle bin (admins only). Deleting an issue sets issues.deleted_at, so
+ * The Archive (admins only). Deleting an issue sets issues.deleted_at, so
  * the row leaves the board but is still in the database. This page lists those
- * rows and lets an admin restore one, or empty the bin for good.
+ * rows and lets an admin restore one, or empty the archive for good.
  *
  * All three operations go through database functions so the admin check lives
  * in the database, not just the UI.
@@ -57,7 +57,7 @@
     var sb = ET.getClient();
     if (!sb) return;
     var res = await sb.rpc('list_deleted_issues');
-    if (res.error) { ET.toast('Could not load the recycle bin: ' + ET.friendlyError(res.error)); return; }
+    if (res.error) { ET.toast('Could not load the archive: ' + ET.friendlyError(res.error)); return; }
     rows = res.data || [];
     render();
   }
@@ -72,9 +72,9 @@
   }
 
   async function emptyBin() {
-    if (!rows.length) { ET.toast('The recycle bin is already empty.'); return; }
+    if (!rows.length) { ET.toast('The archive is already empty.'); return; }
     var ok = await ET.confirm('Permanently delete ' + rows.length + ' issue(s)? This cannot be undone.',
-      { title: 'Empty recycle bin', okLabel: 'Delete forever' });
+      { title: 'Empty archive', okLabel: 'Delete forever' });
     if (!ok) return;
 
     var sb = ET.getClient();
@@ -82,11 +82,11 @@
     var res = await sb.rpc('empty_recycle_bin');
     if (res.error) { ET.toast(ET.friendlyError(res.error)); return; }
     await load();
-    ET.toast('Recycle bin emptied.');
+    ET.toast('Archive emptied.');
   }
 
   async function init() {
-    var user = await ET.layout.render({ active: 'bin', title: 'Recycle bin', requireAdmin: true });
+    var user = await ET.layout.render({ active: 'archive', title: 'Archive', requireAdmin: true });
     if (!user) return;
 
     $('binList').addEventListener('click', function (e) {

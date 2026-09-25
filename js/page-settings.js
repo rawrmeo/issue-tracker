@@ -160,10 +160,6 @@
         });
       });
       paintTheme();
-
-      // Keep the buttons in sync if the topbar toggle is used on this page.
-      var topBtn = $('themeBtn');
-      if (topBtn) topBtn.addEventListener('click', function () { setTimeout(paintTheme, 0); });
     }
 
     if (ET.auth.isAdmin()) initBackups();

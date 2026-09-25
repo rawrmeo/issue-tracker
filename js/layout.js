@@ -5,10 +5,9 @@
  * repeated six times.
  *
  * IMPORTANT — id reuse:
- *   The sidebar/topbar deliberately reuse the ids the existing code expects
- *   (#userChip, #roleChip, #themeBtn, #logoutBtn, #liveDot). That is what lets
- *   the moved app.js logic keep working untouched. enhancements.js also reads
- *   #roleChip, so the "admin"/"user" text and the role-admin class matter.
+ *   The sidebar/topbar reuse the ids the existing code expects
+ *   (#userChip, #roleChip, #logoutBtn, #liveDot, #menuBtn). enhancements.js
+ *   also reads #roleChip, so the role text and the role-admin class matter.
  * ========================================================================= */
 
 (function () {
@@ -19,12 +18,16 @@
 
   var $ = function (id) { return document.getElementById(id); };
 
+  /* Main links sit at the top of the sidebar; the account group (Profile,
+     Settings, Archive) is pinned to the bottom. `bottom: true` also puts an
+     entry in the phone's bottom bar. */
   var NAV = [
-    { key: 'dashboard', label: 'Dashboard', icon: '🏠', href: 'dashboard.html' },
-    { key: 'issues',    label: 'Issues',    icon: '📋', href: 'issues.html' },
-    { key: 'users',     label: 'Users',     icon: '👥', href: 'users.html', admin: true },
-    { key: 'profile',   label: 'Profile',   icon: '👤', href: 'profile.html' },
-    { key: 'settings',  label: 'Settings',  icon: '⚙️', href: 'settings.html' }
+    { key: 'dashboard', label: 'Dashboard', icon: '🏠', href: 'dashboard.html',    group: 'main', bottom: true },
+    { key: 'issues',    label: 'Issues',    icon: '📋', href: 'issues.html',       group: 'main', bottom: true },
+    { key: 'users',     label: 'Users',     icon: '👥', href: 'users.html',        group: 'main', admin: true },
+    { key: 'profile',   label: 'Profile',   icon: '👤', href: 'profile.html',      group: 'foot', bottom: true },
+    { key: 'settings',  label: 'Settings',  icon: '⚙️', href: 'settings.html',     group: 'foot', bottom: true },
+    { key: 'archive',   label: 'Archive',   icon: '🗄️', href: 'recycle-bin.html',  group: 'foot', admin: true, bottom: true }
   ];
 
   /* ================================= theme =============================== */
@@ -35,15 +38,6 @@
     } else {
       document.documentElement.removeAttribute('data-theme');   // "auto" — the OS decides
     }
-    var btn = $('themeBtn');
-    if (btn) {
-      var dark = theme === 'dark';
-      btn.textContent = dark ? '☀️' : '🌙';
-      btn.setAttribute('aria-label', dark ? 'Switch to light mode' : 'Switch to dark mode');
-      btn.title = btn.getAttribute('aria-label');
-    }
-    var sw = $('settingsTheme');
-    if (sw) sw.checked = theme === 'dark';
     syncThemeControl(theme);
   }
 
@@ -60,11 +54,6 @@
       else localStorage.setItem(ET.THEME_KEY, theme);
     } catch (e) { /* ignore */ }
     applyTheme(theme);
-  }
-
-  function toggleTheme() {
-    // The topbar button flips between the two explicit modes.
-    setTheme(currentTheme() === 'dark' ? 'light' : 'dark');
   }
 
   /* Highlights the Auto / Light / Night buttons on the Settings page. */
@@ -97,15 +86,18 @@
   function sidebarHtml(user, active) {
     var admin = user.role === ET.ADMIN;
 
-    var links = NAV.map(function (item) {
-      if (item.admin && !admin) return '';           // Users link hidden for reporters
+    function link(item) {
       return '<a class="nav-link' + (item.key === active ? ' active' : '') + '"' +
         ' href="' + item.href + '"' +
         (item.key === active ? ' aria-current="page"' : '') + '>' +
         '<span class="nav-icon" aria-hidden="true">' + item.icon + '</span>' +
         '<span>' + item.label + '</span>' +
       '</a>';
-    }).join('');
+    }
+
+    var allowed = function (item) { return !item.admin || admin; };
+    var mainLinks = NAV.filter(function (i) { return i.group === 'main' && allowed(i); }).map(link).join('');
+    var footLinks = NAV.filter(function (i) { return i.group === 'foot' && allowed(i); }).map(link).join('');
 
     var initial = ET.escapeHtml((user.username || '?').charAt(0).toUpperCase());
     var roleLabel = admin ? 'Admin' : 'User';
@@ -118,7 +110,9 @@
         '<span>Issue Tracker</span>' +
       '</div>' +
 
-      '<nav class="nav" aria-label="Main">' + links + '</nav>' +
+      '<nav class="nav" aria-label="Main">' + mainLinks + '</nav>' +
+
+      '<nav class="nav sidebar-nav-bottom" aria-label="Account">' + footLinks + '</nav>' +
 
       '<div class="sidebar-foot">' +
         '<div class="user-card">' +
@@ -135,41 +129,25 @@
       '</div>';
   }
 
-  function topbarHtml(title, user) {
-    var admin = user.role === ET.ADMIN;
+  function topbarHtml(title) {
     return '' +
       '<button type="button" class="btn ghost icon menu-btn" id="menuBtn" aria-label="Open menu">☰</button>' +
       '<div class="topbar-heading">' +
         '<h1 class="topbar-title" id="pageTitle">' + ET.escapeHtml(title) + '</h1>' +
-        '<span class="role-badge' + (admin ? ' is-admin' : '') + '" id="roleBadge">' +
-          (admin ? 'Admin' : 'User') +
-        '</span>' +
       '</div>' +
       '<div class="topbar-actions">' +
         '<span class="live-dot" id="liveDot" title="Live updates"></span>' +
-        '<button type="button" class="btn ghost icon" id="themeBtn" title="Toggle light / dark" aria-label="Toggle theme">🌙</button>' +
-        '<div class="role-menu">' +
-          '<button type="button" class="btn" id="roleMenuBtn" aria-haspopup="true" aria-expanded="false">' +
-            (admin ? 'Admin' : 'User') + ' ▾' +
-          '</button>' +
-          '<div class="role-menu-panel" id="roleMenuPanel" hidden>' +
-            '<a href="profile.html">Profile</a>' +
-            '<a href="settings.html">Settings</a>' +
-            '<div class="sep"></div>' +
-            '<button type="button" id="roleMenuLogout">Logout</button>' +
-          '</div>' +
-        '</div>' +
       '</div>';
   }
 
   /* =========================== bottom nav (mobile) ======================= */
 
-  /* A fixed bottom bar for phones, mirroring the main NAV entries. The
-     hamburger in the topbar still opens the full sidebar, so the admin status
-     pages stay reachable. Hidden by CSS on wider screens. */
+  /* A fixed bottom bar for phones, showing the NAV entries flagged `bottom`.
+     The hamburger in the topbar still opens the full sidebar. Hidden by CSS on
+     wider screens. */
   function bottomNavHtml(user, active) {
     var admin = user.role === ET.ADMIN;
-    var items = NAV.filter(function (item) { return !item.admin || admin; });
+    var items = NAV.filter(function (item) { return item.bottom && (!item.admin || admin); });
 
     return items.map(function (item) {
       return '<a class="bn-link' + (item.key === active ? ' active' : '') + '"' +
@@ -203,37 +181,12 @@
     var backdrop = $('backdrop');
     if (backdrop) backdrop.addEventListener('click', closeSidebar);
 
-    var themeBtn = $('themeBtn');
-    if (themeBtn) themeBtn.addEventListener('click', toggleTheme);
-
     var logout = $('logoutBtn');
     if (logout) logout.addEventListener('click', function (e) { ET.auth.logout(e); });
 
-    var roleLogout = $('roleMenuLogout');
-    if (roleLogout) roleLogout.addEventListener('click', function (e) { ET.auth.logout(e); });
-
-    var roleBtn = $('roleMenuBtn');
-    var rolePanel = $('roleMenuPanel');
-    if (roleBtn && rolePanel) {
-      roleBtn.addEventListener('click', function (e) {
-        e.stopPropagation();
-        var open = rolePanel.hidden;
-        rolePanel.hidden = !open;
-        roleBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
-      });
-      document.addEventListener('click', function () {
-        if (!rolePanel.hidden) {
-          rolePanel.hidden = true;
-          roleBtn.setAttribute('aria-expanded', 'false');
-        }
-      });
-      document.addEventListener('keydown', function (e) {
-        if (e.key === 'Escape') {
-          rolePanel.hidden = true;
-          closeSidebar();
-        }
-      });
-    }
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') closeSidebar();
+    });
   }
 
   /**
