@@ -171,9 +171,9 @@
     $('issueForm').reset();
     $('issuePriority').value = 'medium';
     $('issueStatus').value = 'pending';
-    $('issueSubmit').textContent = isAdmin() ? 'Add issue' : 'Report issue';
+    $('issueSubmit').textContent = 'Report issue';
     $('issueCancel').hidden = true;
-    $('formTitle').textContent = isAdmin() ? 'Add an issue' : 'Report an issue';
+    $('formTitle').textContent = 'Report an issue';
     $('formHint').textContent = formHintText();
 
     ['issueTitle', 'issueDescription', 'issueLabel', 'issuePriority'].forEach(function (id) {

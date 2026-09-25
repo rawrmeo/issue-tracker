@@ -18,15 +18,14 @@
 
   var $ = function (id) { return document.getElementById(id); };
 
-  /* Main links sit at the top of the sidebar. The account links (Profile,
-     Settings) live in the top-right profile menu instead; Archive + Logout
-     stay at the bottom of the panel. `bottom: true` also puts an entry in the
-     phone's bottom bar. */
+  /* Main links sit at the top of the sidebar. Profile + Settings live in the
+     top-right profile menu; Archive sits under Users; only Logout is pinned to
+     the bottom. `bottom: true` also puts an entry in the phone's bottom bar. */
   var NAV = [
     { key: 'dashboard', label: 'Dashboard', icon: '🏠', href: 'dashboard.html',    group: 'main', bottom: true },
     { key: 'issues',    label: 'Issues',    icon: '📋', href: 'issues.html',       group: 'main', bottom: true },
     { key: 'users',     label: 'Users',     icon: '👥', href: 'users.html',        group: 'main', admin: true },
-    { key: 'archive',   label: 'Archive',   icon: '🗄️', href: 'recycle-bin.html',  group: 'foot', admin: true, bottom: true }
+    { key: 'archive',   label: 'Archive',   icon: '🗄️', href: 'recycle-bin.html',  group: 'main', admin: true, bottom: true }
   ];
 
   /* ================================= theme =============================== */
@@ -110,7 +109,7 @@
 
       '<nav class="nav" aria-label="Main">' + mainLinks + '</nav>' +
 
-      '<nav class="nav sidebar-nav-bottom" aria-label="Archive">' + footLinks + '</nav>' +
+      (footLinks ? '<nav class="nav sidebar-nav-bottom" aria-label="More">' + footLinks + '</nav>' : '') +
 
       '<div class="sidebar-foot">' +
         '<button type="button" class="btn ghost block" id="logoutBtn">Logout</button>' +

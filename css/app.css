@@ -61,7 +61,7 @@
 .nav-icon { width: 20px; text-align: center; flex: 0 0 auto; font-size: 1rem; line-height: 1; }
 
 .sidebar-nav-bottom { margin-top: auto; }
-.sidebar-foot { display: grid; gap: .6rem; padding-top: .8rem; }
+.sidebar-foot { margin-top: auto; display: grid; gap: .6rem; padding-top: .8rem; }
 
 .user-card {
   display: flex;
