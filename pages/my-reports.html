@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>My reports · Issue Tracker</title>
+  <link rel="manifest" href="../manifest.json" />
+  <link rel="apple-touch-icon" href="../apple-touch-icon.png" />
+  <meta name="theme-color" content="#1F6F9C" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="Issue Tracker" />
+  <link rel="icon" type="image/svg+xml" href="../logo.svg" />
+  <script>try{var t=localStorage.getItem('it.theme');if(t==='dark'||t==='light')document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+  <link rel="stylesheet" href="../styles.css" />
+  <link rel="stylesheet" href="../css/app.css" />
+  <link rel="stylesheet" href="../css/pages.css" />
+  <link rel="stylesheet" href="../css/sidebar.css" />
+  <link rel="stylesheet" href="../css/mobile-nav.css" />
+  <link rel="stylesheet" href="../css/features.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar"></aside>
+
+    <div class="main">
+      <header class="topbar" id="topbar"></header>
+
+      <main class="page-content">
+        <div class="page-head">
+          <h2>My reports</h2>
+          <p>Every issue you have reported, and what happened to it.</p>
+        </div>
+
+        <section class="stats" aria-label="My reports summary">
+          <article class="stat"><span class="stat-value" id="myTotal">0</span><span class="stat-label">Total</span></article>
+          <article class="stat pending"><span class="stat-value" id="myPending">0</span><span class="stat-label">Pending</span></article>
+          <article class="stat fixing"><span class="stat-value" id="myFixing">0</span><span class="stat-label">Fixing</span></article>
+          <article class="stat done"><span class="stat-value" id="myDone">0</span><span class="stat-label">Done</span></article>
+        </section>
+
+        <section class="toolbar">
+          <div class="segmented" role="group" aria-label="Filter my reports">
+            <button type="button" class="seg active" data-myfilter="all">All</button>
+            <button type="button" class="seg" data-myfilter="pending">Pending</button>
+            <button type="button" class="seg" data-myfilter="fixing">Fixing</button>
+            <button type="button" class="seg" data-myfilter="done">Done</button>
+          </div>
+          <div class="filters">
+            <button type="button" class="btn ghost" id="myRefresh">Refresh</button>
+          </div>
+        </section>
+
+        <section id="myList" class="issue-list" aria-live="polite"></section>
+
+        <div id="myEmpty" class="empty" hidden>
+          <div class="empty-icon">🗂️</div>
+          <h3 id="myEmptyTitle">No reports yet</h3>
+          <p class="muted" id="myEmptyText">Issues you report from the Issues page appear here.</p>
+          <a class="btn primary" href="issues.html">Report an issue</a>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <div class="backdrop" id="backdrop" hidden></div>
+  <div id="toast" class="toast" hidden></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="../supabase-config.js"></script>
+  <script src="../js/install.js"></script>
+  <script src="../js/push.js"></script>
+  <script src="../js/notifications.js"></script>
+  <script src="../js/supabase.js"></script>
+  <script src="../js/toast.js"></script>
+  <script src="../js/modal.js"></script>
+  <script src="../js/auth.js"></script>
+  <script src="../js/layout.js"></script>
+  <script src="../js/sidebar.js"></script>
+  <script src="../js/page-my-reports.js"></script>
+<script>
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", function () {
+      navigator.serviceWorker.register("../sw.js").catch(function () {});
+    });
+  }
+</script>
+</body>
+</html>

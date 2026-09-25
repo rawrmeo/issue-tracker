@@ -23,8 +23,9 @@
      the bottom. `bottom: true` also puts an entry in the phone's bottom bar. */
   var NAV = [
     { key: 'dashboard', label: 'Dashboard', icon: '🏠', href: 'dashboard.html',    group: 'main', bottom: true },
-    { key: 'issues',    label: 'Issues',    icon: '📋', href: 'issues.html',       group: 'main', bottom: true },
-    { key: 'reports',   label: 'Reports',   icon: '📊', href: 'reports.html',      group: 'main', admin: true, bottom: true },
+    { key: 'issues',     label: 'Issues',     icon: '📋', href: 'issues.html',      group: 'main', bottom: true },
+    { key: 'my-reports', label: 'My reports', icon: '🗂️', href: 'my-reports.html',  group: 'main', bottom: true },
+    { key: 'reports',    label: 'Reports',    icon: '📊', href: 'reports.html',     group: 'main', admin: true, bottom: true },
     { key: 'users',     label: 'Users',     icon: '👥', href: 'users.html',        group: 'main', admin: true },
     { key: 'archive',   label: 'Archive',   icon: '🗄️', href: 'recycle-bin.html',  group: 'main', admin: true, bottom: true }
   ];
