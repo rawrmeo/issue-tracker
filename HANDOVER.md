@@ -108,10 +108,11 @@ Every file, and what it is for. **This is the map to read when you take over.**
 | `supabase.js` | every page | Creates the **one** client, plus helpers (`escapeHtml`, `formatDate`, `timeAgo`, `friendlyError`) and constants (`STATUSES`, `PRIORITY_RANK`, `ADMIN`) |
 | `auth.js` | every page | `initLoginPage()`, `guard()`, `isAdmin()`, `logout()`, `user` |
 | `layout.js` | app pages | Builds the **sidebar**, **topbar**, theme control and **mobile bottom nav**; exposes `ET.layout.render()` |
-| `sidebar.js` | app pages | Adds the **admin-only** links (Reported…Recycle bin) to the sidebar |
+| `sidebar.js` | app pages | Sets `body.role-admin` / `body.role-user` for the CSS |
 | `toast.js` | every page | `ET.toast(msg)` |
 | `modal.js` | every page | `ET.confirm()` promise-based dialog |
 | `install.js` | every page | **Install app** button (`beforeinstallprompt` / iOS hint) |
+| `push.js` | every page | **Push notifications**: subscribes the device and drives the Settings switch |
 | `page-dashboard.js` | dashboard | Stats, chart, repeated issues, activity |
 | `page-issues.js` | issues + admin-* | The whole board: list, filters, create/edit, status, delete, bulk actions, shortcuts, realtime |
 | `page-admin.js` | admin-* | Applies the page's status filter and adds a confirm before Done |
@@ -210,29 +211,30 @@ flowchart TB
 
 ## 5. The left panel, one by one
 
-The sidebar is built by `js/layout.js` (main links) and `js/sidebar.js` (admin
-links). On a phone the same main links appear as a **bottom bar**, and the
-hamburger opens the sidebar as a drawer.
+The sidebar is built by `js/layout.js` from one `NAV` list. Entries with
+`group: 'foot'` are pinned to the bottom; entries with `bottom: true` also
+appear in the phone's bottom bar. The hamburger opens the sidebar as a drawer
+on small screens.
+
+> **Recent change:** the admin section (Reported / Pending / Fixing / Done /
+> Users / All issues) was removed from the panel — those views are reached from
+> the **Issues** page's status filter instead. **Recycle bin** was renamed
+> **Archive** and, like Profile and Settings, now lives at the bottom. The top
+> bar no longer shows a role badge, a role menu or a day/night button; night
+> mode is only in **Settings → Appearance**.
 
 ```
 ┌──────────────────────────┐
 │  ✓ Issue Tracker         │
 │                          │
-│  🏠 Dashboard            │  main nav (everyone)
+│  🏠 Dashboard            │  main    (top)
 │  📋 Issues               │
 │  👥 Users        (admin) │
-│  👤 Profile              │
-│  ⚙️  Settings             │
 │                          │
-│  Admin           (admin) │
-│  📥 Reported             │
-│  ⏳ Pending               │
-│  🔧 Fixing                │
-│  ✅ Done                  │
-│  👥 Users                 │
-│  🗑️  Recycle bin           │
-│  ─────────────────────   │
-│  🏠 All issues            │
+│                          │
+│  👤 Profile              │  account (pinned to the bottom)
+│  ⚙️  Settings             │
+│  🗄️  Archive      (admin) │
 │                          │
 │  [ you · role ]          │
 │  [ Install app ] (maybe) │
@@ -528,11 +530,11 @@ secrets out. A commit also auto-pushes (git hook).
 
 ## 10. Gotchas & known quirks
 
-- **Two "Users" entries** in the sidebar (main nav + admin section) — both open
-  `users.html`.
-- **"Reported" and "Pending"** admin pages currently apply the **same** `pending`
-  filter (`admin-reported.html` has `data-admin-status="pending"`). If "Reported"
-  should mean something else, change that attribute or the filter.
+- The **admin status pages** (`admin-*.html`) still exist but are no longer
+  linked from the sidebar — the Issues status filter replaces them, so they are
+  reachable by URL only.
+- **"Reported" and "Pending"** admin pages apply the **same** `pending` filter
+  (`admin-reported.html` has `data-admin-status="pending"`).
 - **`app.html`** is a leftover from the single-page version; nothing links to it.
 - **The admin-message, recycle-bin and backup features need their SQL run once.**
   Until then the app falls back to hard delete and skips the message.
