@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>My reports · Issue Tracker</title>
+  <title>My Reports · Issue Tracker</title>
   <link rel="manifest" href="../manifest.json" />
   <link rel="apple-touch-icon" href="../apple-touch-icon.png" />
   <meta name="theme-color" content="#1F6F9C" />
@@ -28,36 +28,49 @@
 
       <main class="page-content">
         <div class="page-head">
-          <h2>My reports</h2>
-          <p>Every issue you have reported, and what happened to it.</p>
+          <h2>My Reports</h2>
+          <p>Everything you have reported, including the ones already fixed.</p>
         </div>
 
-        <section class="stats" aria-label="My reports summary">
-          <article class="stat"><span class="stat-value" id="myTotal">0</span><span class="stat-label">Total</span></article>
-          <article class="stat pending"><span class="stat-value" id="myPending">0</span><span class="stat-label">Pending</span></article>
-          <article class="stat fixing"><span class="stat-value" id="myFixing">0</span><span class="stat-label">Fixing</span></article>
-          <article class="stat done"><span class="stat-value" id="myDone">0</span><span class="stat-label">Done</span></article>
+        <section class="stats" aria-label="My summary">
+          <article class="stat">
+            <span class="stat-value" id="myTotal">0</span>
+            <span class="stat-label">Total</span>
+          </article>
+          <article class="stat pending">
+            <span class="stat-value" id="myPending">0</span>
+            <span class="stat-label">Pending</span>
+          </article>
+          <article class="stat fixing">
+            <span class="stat-value" id="myFixing">0</span>
+            <span class="stat-label">Fixing</span>
+          </article>
+          <article class="stat done">
+            <span class="stat-value" id="myDone">0</span>
+            <span class="stat-label">Done</span>
+          </article>
         </section>
 
         <section class="toolbar">
-          <div class="segmented" role="group" aria-label="Filter my reports">
-            <button type="button" class="seg active" data-myfilter="all">All</button>
-            <button type="button" class="seg" data-myfilter="pending">Pending</button>
-            <button type="button" class="seg" data-myfilter="fixing">Fixing</button>
-            <button type="button" class="seg" data-myfilter="done">Done</button>
+          <div class="search">
+            <input type="search" id="mySearch" placeholder="Search your reports…" aria-label="Search your reports" />
           </div>
           <div class="filters">
-            <button type="button" class="btn ghost" id="myRefresh">Refresh</button>
+            <div class="segmented" role="group" aria-label="Filter by status">
+              <button type="button" class="seg active" data-filter="all">All</button>
+              <button type="button" class="seg" data-filter="pending">Pending</button>
+              <button type="button" class="seg" data-filter="fixing">Fixing</button>
+              <button type="button" class="seg" data-filter="done">Done</button>
+            </div>
           </div>
         </section>
 
         <section id="myList" class="issue-list" aria-live="polite"></section>
 
         <div id="myEmpty" class="empty" hidden>
-          <div class="empty-icon">🗂️</div>
-          <h3 id="myEmptyTitle">No reports yet</h3>
-          <p class="muted" id="myEmptyText">Issues you report from the Issues page appear here.</p>
-          <a class="btn primary" href="issues.html">Report an issue</a>
+          <div class="empty-icon">📝</div>
+          <h3 id="myEmptyTitle">You have not reported anything yet</h3>
+          <p class="muted" id="myEmptyText">Reports you file on the Issues page appear here.</p>
         </div>
       </main>
     </div>
