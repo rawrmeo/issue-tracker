@@ -112,7 +112,7 @@
     }
 
     var styles = getComputedStyle(document.documentElement);
-    var accent = (styles.getPropertyValue('--accent') || '#4f46e5').trim();
+    var accent = (styles.getPropertyValue('--accent') || '#1F6F9C').trim();
     var border = (styles.getPropertyValue('--border') || '#e3e5ee').trim();
     var muted = (styles.getPropertyValue('--muted') || '#6b7186').trim();
 
@@ -216,17 +216,54 @@
     }).join('');
   }
 
+  /* ------------------------- repeated issues ---------------------------- */
+
+  /* Titles match once case, spacing and punctuation are ignored, so
+     "Login fails!" and "login-fails" count as the same problem. */
+  function normTitle(text) {
+    return String(text || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  }
+
+  function renderRepeated(issues) {
+    var list = $('repeatList');
+    if (!list) return;
+
+    var groups = {};
+    issues.forEach(function (i) {
+      var key = normTitle(i.title);
+      if (!key) return;
+      (groups[key] = groups[key] || []).push(i);
+    });
+
+    var rows = Object.keys(groups).map(function (k) { return groups[k]; })
+      .filter(function (g) { return g.length > 1; })
+      .sort(function (a, b) { return b.length - a.length || b[0].createdAt - a[0].createdAt; })
+      .slice(0, 8);
+
+    var empty = $('repeatEmpty');
+    if (empty) empty.hidden = rows.length > 0;
+    list.hidden = rows.length === 0;
+
+    var max = rows.length ? rows[0].length : 1;
+    list.innerHTML = rows.map(function (g) {
+      var open = g.filter(function (i) { return i.status !== 'done'; }).length;
+      var pct = Math.round(g.length / max * 100);
+      return '<div class="repeat-item">' +
+        '<div class="repeat-row">' +
+          '<span class="repeat-name" title="' + escapeHtml(g[0].title) + '">' + escapeHtml(g[0].title) + '</span>' +
+          '<span class="repeat-count">' + g.length + '</span>' +
+        '</div>' +
+        '<div class="repeat-track"><span class="repeat-fill" style="width:' + pct + '%"></span></div>' +
+        '<div class="repeat-meta">' + open + ' still open</div>' +
+      '</div>';
+    }).join('');
+  }
+
   /* --------------------------------- init -------------------------------- */
 
   async function init() {
     var user = await ET.layout.render({ active: 'dashboard', title: 'Dashboard' });
     if (!user) return;
-
-    var greeting = $('dashGreeting');
-    if (greeting) {
-      greeting.textContent = 'Signed in as ' + user.username +
-        ' (' + (ET.auth.isAdmin() ? 'admin' : 'user') + ').';
-    }
 
     var sb = ET.getClient();
     if (!sb) return;
@@ -249,6 +286,7 @@
     renderStats(issues);
     renderChart(issues);
     renderActivity(issues, profileById);
+    renderRepeated(issues);
   }
 
   if (document.readyState === 'loading') {

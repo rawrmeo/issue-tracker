@@ -26,4 +26,10 @@ window.SUPABASE_CONFIG = {
      which is exactly what we want for throwaway addresses.
      Change it only if you know why you want to. */
   emailDomain: 'example.com',
+
+  /* Push notifications (optional). Paste the PUBLIC half of your VAPID key
+     pair here — it is safe to publish. Generate the pair once with:
+         npx web-push generate-vapid-keys
+     Leave it empty and the Notifications switch in Settings stays off. */
+  vapidPublicKey: 'BOBYN43lUAjyy32CubTi5LUsc4TRORXNdHmhcVYi9ByVCoIojd4bzTJLXwEE3waIBd6pWYfcAKyFTGgp31b6KeY',
 };

@@ -101,6 +101,10 @@
   /* ========================= role, from the DOM ========================== */
 
   function role() {
+    // Prefer the shared auth state; fall back to the old role chip if present.
+    if (window.ET && window.ET.auth && window.ET.auth.user) {
+      return window.ET.auth.user.role === 'admin' ? 'admin' : 'user';
+    }
     var chip = $('roleChip');
     if (!chip) return null;
     var t = String(chip.textContent || '').trim().toLowerCase();

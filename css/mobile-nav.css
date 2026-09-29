@@ -1,0 +1,63 @@
+/* ============================================================================
+ * css/mobile-nav.css
+ * ----------------------------------------------------------------------------
+ * The bottom navigation bar for phones, built by js/layout.js (#bottomNav).
+ * It is hidden on wider screens, where the sidebar is used instead.
+ *
+ * Additive only. Loaded after css/app.css so its mobile padding wins.
+ * ========================================================================= */
+
+.bottom-nav { display: none; }
+
+@media (max-width: 768px) {
+  .bottom-nav {
+    display: flex;
+    align-items: stretch;
+    gap: .15rem;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    /* Below the sidebar drawer (40) and its backdrop (35), so opening the
+       full menu covers the bar. */
+    z-index: 34;
+    padding: .35rem .4rem calc(.35rem + env(safe-area-inset-bottom, 0px));
+    background: color-mix(in srgb, var(--surface) 92%, transparent);
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
+    border-top: 1px solid var(--border);
+    box-shadow: 0 -2px 14px rgba(10, 12, 20, .07);
+  }
+
+  .bn-link {
+    flex: 1 1 0;
+    min-width: 0;
+    display: grid;
+    justify-items: center;
+    align-content: center;
+    gap: .18rem;
+    padding: .4rem .15rem .35rem;
+    border-radius: 12px;
+    color: var(--muted);
+    text-decoration: none;
+    font-weight: 600;
+    font-size: .64rem;
+    line-height: 1.1;
+    transition: color .15s, background .15s;
+  }
+  .bn-link:hover,
+  .bn-link:focus-visible { color: var(--text); }
+  .bn-link.active { color: var(--accent); background: var(--accent-soft); }
+
+  .bn-icon { font-size: 1.18rem; line-height: 1; }
+
+  .bn-label {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* Keep the page clear of the fixed bar. */
+  .page-content { padding-bottom: calc(5.75rem + env(safe-area-inset-bottom, 0px)); }
+}

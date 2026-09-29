@@ -68,11 +68,26 @@ Only admins can change the status of an issue
 
 | File | Purpose |
 | --- | --- |
-| `index.html` | Page structure (auth + app views) |
+| `index.html` | **Entry point** — sign in / create account, then redirects into `pages/` |
+| `pages/*.html` | The app screens (dashboard, issues, my-reports, reports, users, profile, settings, archive) |
+| `js/*.js` | Shared modules + one script per page |
 | `styles.css` | Styling and theme |
-| `app.js` | UI, Supabase client calls, permissions for the UI |
+| `app.js` | Legacy single-page script — unused by the current pages |
 | `supabase-config.js` | **Your** project URL + anon key (you fill this in) |
-| `supabase/schema.sql` | Tables, RLS policies, triggers — run once |
+| `supabase/schema.sql` | Base tables, RLS policies, triggers - run once |
+| `sql/APPLY-ALL.sql` | Every migration in one paste-once file |
+| `sql/api.sql` | Public REST API support: API keys, stats, webhooks - run once |
+| `supabase/functions/api/` | The public REST API gateway (Supabase Edge Function) |
+| `API.md` | REST API docs and the full endpoint catalog |
+| `openapi.yaml` | OpenAPI 3 spec for the REST API |
+| `TESTING.md` | How to test the API (automated + manual + webhooks) |
+| `tools/test-api.ps1` | Automated API smoke test (PASS/FAIL) |
+| `ARCHITECTURE.md` | System architecture + process-flow diagrams (Mermaid) |
+| `HANDOVER.md` | Complete handover guide: abstract, repo map, and every left-panel item walked through with a flowchart |
+| `flowcharts.html` | Every diagram rendered on one page — just open it in a browser |
+| `tools/build-flowcharts.ps1` | Regenerates `flowcharts.html` from the two markdown files |
+| `tools/deploy-api.ps1` | Deploys the API (SQL + Edge Function) via the Management API |
+| `supabase/config.toml` | Edge Function settings (`verify_jwt = false` for `api` + `send-push`) |
 | `SETUP.md` | Step-by-step database setup |
 | `vercel.json` | Vercel config (clean URLs, security headers) |
 | `deploy.ps1` | Windows helper: commit + push in one command |
@@ -148,6 +163,49 @@ route is still `.\deploy.ps1` → git push → Vercel rebuilds.
 
 ---
 
+## 4. Branch workflow — `develop` → `main`
+
+Day-to-day work happens on **`develop`**. `main` is the stable, live branch
+(Vercel deploys it).
+
+```powershell
+git checkout develop      # work here
+# ... edit files, then ...
+git add -A
+git commit -m "what changed"
+```
+
+### Automatic sync (already configured)
+
+- **VS Code** — `.vscode/settings.json` sets `git.autofetch` (checks GitHub
+  every 60 seconds) and `git.postCommitCommand: "sync"` (pull + push after a
+  commit made from the Source Control panel).
+- **Terminal** — `.git/hooks/post-commit` and `.git/hooks/post-merge` push the
+  current branch after every commit / merge, so a plain `git commit` also
+  updates GitHub. If the push fails (e.g. you are offline) the commit still
+  succeeds; run `git push` manually later.
+
+`main` and `master` are deliberately **excluded** from the auto-push hook so a
+production deploy can never happen by accident. To include them, remove the
+`case "$branch" in ... esac` block at the top of `.git/hooks/post-commit`.
+
+### Promote `develop` to `main`
+
+```powershell
+git checkout main
+git pull
+git merge develop
+git push
+git checkout develop      # back to your work branch
+```
+
+Or open a pull request on GitHub: `develop` → `main` → **Merge**.
+
+> Hooks live in `.git/`, which Git does not track, so they are **not** cloned
+> to other machines. Re-create them when you set up a new PC.
+
+---
+
 ## Security
 
 Unlike the earlier localStorage version, this is a genuine multi-user system:
@@ -173,6 +231,106 @@ Things to keep in mind:
 - **Project Settings → API** also shows a `service_role` key. That one is a
   master key and bypasses all security. It must never appear in any file in
   this repo.
+
+---
+
+## Install it on your phone
+
+The app is a **PWA**, so it can be installed straight from the browser and then
+opens full screen with its own icon:
+
+- **Android / Chrome:** open the site → menu **⋮ → Install app** (or *Add to
+  Home screen*).
+- **iPhone / Safari:** open the site → **Share → Add to Home Screen**.
+
+A service worker caches the shell, so it also opens when the phone is offline
+(showing the last loaded version).
+
+---
+
+## Extra features
+
+- **Stale badges** — an issue still open after **7 days** shows an *Open Nd*
+  badge on the Issues page.
+- **Bulk actions (admins)** — tick issues on the Issues page, then **Apply
+  status** or **Delete selected** in one go.
+- **Message to the reporter** — when an admin edits an issue, the reporter's
+  title and description are kept read-only; the admin can set the status and
+  priority and leave a message, which the reporter sees on the issue.
+- **Most repeated issues** — the Dashboard lists titles reported more than
+  once (case, spacing and punctuation ignored).
+- **Keyboard shortcuts** — on the Issues page: `/` search, `N` new issue,
+  `?` help, `Esc` close.
+- **Appearance** — Settings now offers **Auto / Light / Night**.
+- **Archive** — deleting an issue moves it to the Archive instead of erasing
+  it. Admins open **Archive** in the sidebar to restore one or empty it.
+- **My Reports** — every user gets a read-only page with their own reports,
+  whatever their status, including any message an admin left.
+- **Reports (admins)** — filter by day, week, month, year or a custom range,
+  then export exactly what is shown as **CSV**, **JSON** or **Print / PDF**.
+- **Public REST API (optional)** — admins issue **API keys** (`user` or `admin`),
+  other systems consume a versioned REST API, and outbound **Webhooks** push
+  issue events to your URLs. In the sidebar: **API keys**, **Webhooks**,
+  **API docs**. See `API.md` and `openapi.yaml`.
+- **Install app** — an **Install app** button (sidebar and sign-in page) turns
+  the site into a home-screen app on phones.
+- **Automatic backups (admins)** — Settings → **Automatic backups**. The
+  database snapshots every issue at most once an hour; admins can **Back up
+  now**, see saved snapshots and **Restore** one.
+
+> **One-time database step.** Run `supabase/schema.sql`, then paste
+> **`sql/APPLY-ALL.sql`** in Supabase → SQL Editor → Run. That one file contains
+> every migration: `admin_note`, `recycle_bin`, `backups`,
+> `push_notifications` and `notifications`.
+
+### Notifications (both roles)
+
+A **bell** sits in the top bar next to your profile. You are told when:
+
+| Event | Who is told |
+|---|---|
+| A new issue is reported | every admin (except the one who reported it) |
+| An admin marks an issue **done** | the reporter |
+| An admin **leaves a message** | the reporter |
+
+Rows live in `public.notifications`; click the bell to read them, or
+**Mark all read**. The feed arrives live over Realtime. Run
+`sql/notifications.sql` once — until then the bell simply stays empty.
+Push (below) delivers the same three events to a phone.
+
+### Push notifications (optional)
+
+A reporter can be told on their phone — even with the app closed — when an admin
+leaves a message or marks their issue done. It needs one Edge Function as the
+sender, because a browser cannot send itself a push.
+
+1. Run `sql/push_notifications.sql` in the SQL Editor.
+2. Generate a key pair (once):
+   ```powershell
+   npx web-push generate-vapid-keys
+   ```
+3. Paste the **public** key into `supabase-config.js` → `vapidPublicKey`.
+4. Deploy the sender and give it the keys:
+   ```powershell
+   supabase functions deploy send-push
+   supabase secrets set VAPID_PUBLIC_KEY=... VAPID_PRIVATE_KEY=... `
+                         VAPID_SUBJECT=mailto:you@example.com `
+                         PUSH_SHARED_SECRET=<a long random string>
+   ```
+5. Point the trigger at it:
+   ```sql
+   update public.app_settings
+      set push_function_url  = 'https://<your-ref>.supabase.co/functions/v1/send-push',
+          push_shared_secret = '<the same long random string>';
+   ```
+
+Then, on the phone: **Settings → Notifications → Push notifications** on, and
+allow the browser prompt. Until step 3 is done the switch says *"Not set up
+yet"*, and nothing else in the app is affected.
+
+> **Want sample data?** `sql/demo_data.sql` fills the board with 14 demo
+> issues — varied statuses, a repeated title and several older than a week.
+> It only inserts when the board is empty, so it cannot overwrite real work.
 
 ---
 

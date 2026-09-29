@@ -4,13 +4,21 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Settings · Issue Tracker</title>
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%234f46e5'/%3E%3Cpath d='M28 52l15 15 30-32' stroke='white' stroke-width='11' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
-  <script>try{if(localStorage.getItem('it.theme')==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
+  <link rel="manifest" href="../manifest.json" />
+  <link rel="apple-touch-icon" href="../apple-touch-icon.png" />
+  <meta name="theme-color" content="#1F6F9C" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="Issue Tracker" />
+  <link rel="icon" type="image/svg+xml" href="../logo.svg" />
+  <script>try{var t=localStorage.getItem('it.theme');if(t==='dark'||t==='light')document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
   <link rel="stylesheet" href="../styles.css" />
   <link rel="stylesheet" href="../css/app.css" />
   <link rel="stylesheet" href="../css/pages.css" />
   <!-- ADDED: admin-only sidebar + role badge -->
   <link rel="stylesheet" href="../css/sidebar.css" />
+  <link rel="stylesheet" href="../css/mobile-nav.css" />
+  <link rel="stylesheet" href="../css/features.css" />
 </head>
 <body>
   <div class="app-shell">
@@ -28,11 +36,15 @@
         <section class="card panel">
           <div class="setting-row">
             <div class="setting-text">
-              <span class="name">Dark mode</span>
-              <span class="muted small">Stored in this browser and applied instantly.</span>
+              <span class="name">Appearance</span>
+              <span class="muted small">Night mode, or follow your device. Stored in this browser.</span>
             </div>
             <div class="setting-control">
-              <input type="checkbox" class="switch" id="settingsTheme" aria-label="Dark mode" />
+              <div class="segmented" role="group" aria-label="Appearance">
+                <button type="button" class="seg" data-theme-opt="auto">Auto</button>
+                <button type="button" class="seg" data-theme-opt="light">Light</button>
+                <button type="button" class="seg" data-theme-opt="dark">Night</button>
+              </div>
             </div>
           </div>
 
@@ -52,11 +64,53 @@
               <span class="muted small">Sign out of this device.</span>
             </div>
             <div class="setting-control">
-              <button type="button" class="btn danger" id="settingsLogout">Logout</button>
+              <button type="button" class="btn blue" id="settingsLogout">Logout</button>
             </div>
           </div>
 
           <p class="inline-note" id="settingsStatus" role="status"></p>
+        </section>
+
+        <section class="card panel" id="pushPanel">
+          <div class="panel-head">
+            <h2>Notifications</h2>
+            <p class="muted">Get told on this device when an admin messages you or marks your issue done.</p>
+          </div>
+          <div class="setting-row">
+            <div class="setting-text">
+              <span class="name">Push notifications</span>
+              <span class="muted small" id="pushNote">Checking this device…</span>
+            </div>
+            <div class="setting-control">
+              <input type="checkbox" class="switch" id="pushToggle" aria-label="Push notifications" />
+            </div>
+          </div>
+        </section>
+
+        <section class="card panel" id="backupPanel" hidden>
+          <div class="panel-head">
+            <h2>Automatic backups</h2>
+            <p class="muted">Snapshots of every issue, taken by the database itself.</p>
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-text">
+              <span class="name">Automatic backups</span>
+              <span class="muted small">Take a snapshot at most once an hour when issues change.</span>
+            </div>
+            <div class="setting-control">
+              <input type="checkbox" class="switch" id="autoBackupToggle" aria-label="Automatic backups" />
+            </div>
+          </div>
+
+          <div class="card-row">
+            <button type="button" class="btn primary" id="backupNowBtn">Back up now</button>
+            <button type="button" class="btn" id="backupRefreshBtn">Refresh</button>
+          </div>
+          <p class="muted small" id="backupNote" role="status"></p>
+
+          <h3 style="margin-top:1rem;">Saved snapshots <span class="muted" id="backupCount">0</span></h3>
+          <div id="backupList" class="backup-list"></div>
         </section>
       </main>
     </div>
@@ -67,6 +121,9 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="../supabase-config.js"></script>
+  <script src="../js/install.js"></script>
+  <script src="../js/push.js"></script>
+  <script src="../js/notifications.js"></script>
   <script src="../js/supabase.js"></script>
   <script src="../js/toast.js"></script>
   <script src="../js/modal.js"></script>
@@ -75,5 +132,12 @@
   <!-- ADDED: admin-only sidebar (renders only for admins) -->
   <script src="../js/sidebar.js"></script>
   <script src="../js/page-settings.js"></script>
+<script>
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", function () {
+      navigator.serviceWorker.register("../sw.js").catch(function () {});
+    });
+  }
+</script>
 </body>
 </html>

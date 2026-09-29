@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>API docs · Issue Tracker</title>
+  <link rel="manifest" href="../manifest.json" />
+  <link rel="apple-touch-icon" href="../apple-touch-icon.png" />
+  <meta name="theme-color" content="#1F6F9C" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="Issue Tracker" />
+  <link rel="icon" type="image/svg+xml" href="../logo.svg" />
+  <script>try{var t=localStorage.getItem('it.theme');if(t==='dark'||t==='light')document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+  <link rel="stylesheet" href="../styles.css" />
+  <link rel="stylesheet" href="../css/app.css" />
+  <link rel="stylesheet" href="../css/pages.css" />
+  <link rel="stylesheet" href="../css/sidebar.css" />
+  <link rel="stylesheet" href="../css/mobile-nav.css" />
+  <link rel="stylesheet" href="../css/features.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar"></aside>
+
+    <div class="main">
+      <header class="topbar" id="topbar"></header>
+
+      <main class="page-content">
+        <div class="page-head">
+          <h2>API docs</h2>
+          <p>The public REST API other systems can consume. Manage access on the
+             <strong>API keys</strong> page and outbound events on <strong>Webhooks</strong>.</p>
+        </div>
+
+        <section class="card panel">
+          <div class="panel-head">
+            <h2>Base URL</h2>
+            <p class="muted">Every path below is relative to this. Version: <code>v1</code>.</p>
+          </div>
+          <div class="key-reveal">
+            <code id="apiBase">—</code>
+            <button type="button" class="btn ghost" id="apiBaseCopy">Copy</button>
+          </div>
+          <div class="card-row" style="margin-top:.7rem;">
+            <a class="btn" href="../openapi.yaml" target="_blank" rel="noopener">OpenAPI spec</a>
+            <a class="btn ghost" href="../API.md" target="_blank" rel="noopener">Full docs (API.md)</a>
+          </div>
+        </section>
+
+        <section class="card panel">
+          <div class="panel-head">
+            <h2>Authentication</h2>
+            <p class="muted">Create a key on the <strong>API keys</strong> page. Send it in either header:</p>
+          </div>
+          <pre class="api-snippet">x-api-key: itk_&lt;48 hex chars&gt;
+Authorization: Bearer itk_&lt;48 hex chars&gt;</pre>
+          <p class="muted small">A <strong>user</strong> key manages its own issues and cannot
+             change a status. An <strong>admin</strong> key has full access.</p>
+        </section>
+
+        <section class="card panel">
+          <div class="panel-head"><h2>Endpoint catalog</h2></div>
+
+          <h3 class="api-group">Health</h3>
+          <table class="report-table">
+            <thead><tr><th>Method</th><th>Path</th><th>Role</th><th>Purpose</th></tr></thead>
+            <tbody>
+              <tr><td>GET</td><td><code>/health</code></td><td>—</td><td>Liveness/version (no key)</td></tr>
+            </tbody>
+          </table>
+
+          <h3 class="api-group">Identity</h3>
+          <table class="report-table">
+            <thead><tr><th>Method</th><th>Path</th><th>Role</th><th>Purpose</th></tr></thead>
+            <tbody>
+              <tr><td>GET</td><td><code>/v1/me</code></td><td>user</td><td>Profile and role behind the key</td></tr>
+            </tbody>
+          </table>
+
+          <h3 class="api-group">Issues — user</h3>
+          <table class="report-table">
+            <thead><tr><th>Method</th><th>Path</th><th>Role</th><th>Purpose</th></tr></thead>
+            <tbody>
+              <tr><td>GET</td><td><code>/v1/issues</code></td><td>user</td><td>List with filters + pagination</td></tr>
+              <tr><td>GET</td><td><code>/v1/issues/{id}</code></td><td>user</td><td>One issue</td></tr>
+              <tr><td>POST</td><td><code>/v1/issues</code></td><td>user</td><td>Report an issue (status forced pending)</td></tr>
+              <tr><td>PATCH</td><td><code>/v1/issues/{id}</code></td><td>user</td><td>Edit your own issue</td></tr>
+              <tr><td>DELETE</td><td><code>/v1/issues/{id}</code></td><td>user</td><td>Soft-delete your own issue → Archive</td></tr>
+            </tbody>
+          </table>
+
+          <h3 class="api-group">Issues — admin</h3>
+          <table class="report-table">
+            <thead><tr><th>Method</th><th>Path</th><th>Role</th><th>Purpose</th></tr></thead>
+            <tbody>
+              <tr><td>POST</td><td><code>/v1/issues</code></td><td>admin</td><td>Any status / author</td></tr>
+              <tr><td>PATCH</td><td><code>/v1/issues/{id}</code></td><td>admin</td><td>Set status, leave admin_note</td></tr>
+              <tr><td>DELETE</td><td><code>/v1/issues/{id}</code></td><td>admin</td><td>Soft-delete anyone's issue</td></tr>
+              <tr><td>POST</td><td><code>/v1/issues/{id}/restore</code></td><td>admin</td><td>Restore from the Archive</td></tr>
+            </tbody>
+          </table>
+
+          <h3 class="api-group">Stats · Users · Archive</h3>
+          <table class="report-table">
+            <thead><tr><th>Method</th><th>Path</th><th>Role</th><th>Purpose</th></tr></thead>
+            <tbody>
+              <tr><td>GET</td><td><code>/v1/stats</code></td><td>user</td><td>Counts (mine / all)</td></tr>
+              <tr><td>GET</td><td><code>/v1/users</code></td><td>admin</td><td>List accounts</td></tr>
+              <tr><td>GET</td><td><code>/v1/users/{id}</code></td><td>admin</td><td>One account</td></tr>
+              <tr><td>PATCH</td><td><code>/v1/users/{id}</code></td><td>admin</td><td>Promote / demote</td></tr>
+              <tr><td>GET</td><td><code>/v1/archive</code></td><td>admin</td><td>Soft-deleted issues</td></tr>
+              <tr><td>POST</td><td><code>/v1/archive/{id}/restore</code></td><td>admin</td><td>Restore one</td></tr>
+              <tr><td>DELETE</td><td><code>/v1/archive</code></td><td>admin</td><td>Empty the Archive</td></tr>
+            </tbody>
+          </table>
+
+          <h3 class="api-group">Notifications · Keys</h3>
+          <table class="report-table">
+            <thead><tr><th>Method</th><th>Path</th><th>Role</th><th>Purpose</th></tr></thead>
+            <tbody>
+              <tr><td>GET</td><td><code>/v1/notifications</code></td><td>user</td><td>Your newest 50</td></tr>
+              <tr><td>POST</td><td><code>/v1/notifications/read-all</code></td><td>user</td><td>Mark all read</td></tr>
+              <tr><td>PATCH</td><td><code>/v1/notifications/{id}/read</code></td><td>user</td><td>Mark one read</td></tr>
+              <tr><td>GET</td><td><code>/v1/keys</code></td><td>admin</td><td>List keys</td></tr>
+              <tr><td>POST</td><td><code>/v1/keys</code></td><td>admin</td><td>Create a key (secret shown once)</td></tr>
+              <tr><td>DELETE</td><td><code>/v1/keys/{id}</code></td><td>admin</td><td>Revoke a key</td></tr>
+            </tbody>
+          </table>
+
+          <h3 class="api-group">Web API — events</h3>
+          <p class="muted small">Webhooks POST to your URL on:
+            <code>issue.created</code>, <code>issue.updated</code>,
+            <code>issue.status_changed</code>, <code>issue.done</code>,
+            <code>issue.deleted</code>. Configure them on the <strong>Webhooks</strong> page.</p>
+        </section>
+
+        <section class="card panel">
+          <div class="panel-head">
+            <h2>Examples</h2>
+            <p class="muted">Conventions: <code>?limit&amp;offset</code> pagination, <code>?sort&amp;order</code>,
+               errors as <code>{ "error": { "code", "message" } }</code>.</p>
+          </div>
+          <pre class="api-snippet" id="apiExamples">curl "$BASE/v1/issues?status=pending&amp;limit=10" \
+  -H "x-api-key: $KEY"
+
+curl -X PATCH "$BASE/v1/issues/&lt;id&gt;" \
+  -H "x-api-key: $ADMIN_KEY" -H "content-type: application/json" \
+  -d '{"status":"done","admin_note":"Fixed in v1.4"}'</pre>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <div class="backdrop" id="backdrop" hidden></div>
+  <div id="toast" class="toast" hidden></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="../supabase-config.js"></script>
+  <script src="../js/install.js"></script>
+  <script src="../js/push.js"></script>
+  <script src="../js/notifications.js"></script>
+  <script src="../js/supabase.js"></script>
+  <script src="../js/toast.js"></script>
+  <script src="../js/modal.js"></script>
+  <script src="../js/auth.js"></script>
+  <script src="../js/layout.js"></script>
+  <script src="../js/sidebar.js"></script>
+  <script src="../js/page-apidocs.js"></script>
+<script>
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", function () {
+      navigator.serviceWorker.register("../sw.js").catch(function () {});
+    });
+  }
+</script>
+</body>
+</html>

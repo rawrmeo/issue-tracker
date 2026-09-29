@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="Issue Tracker">
+  <title>Issue Tracker</title>
+  <!-- the "I" (blue) and the left of the "T" crossbar -->
+  <g fill="#1F6F9C">
+    <rect x="29" y="15" width="17" height="17" rx="3.5" />
+    <rect x="29" y="40" width="17" height="38" rx="3.5" />
+    <rect x="50" y="15" width="15" height="17" rx="3.5" />
+  </g>
+  <!-- the "T" (orange) …
+       … plus the tick that turns its stem into a check mark -->
+  <g fill="#E07B1C">
+    <rect x="65" y="15" width="18" height="17" rx="3.5" />
+    <rect x="65" y="32" width="17" height="26" rx="3.5" />
+  </g>
+  <path d="M43 62 L57 77 L82 48"
+        fill="none" stroke="#E07B1C" stroke-width="12"
+        stroke-linecap="round" stroke-linejoin="round" />
+</svg>

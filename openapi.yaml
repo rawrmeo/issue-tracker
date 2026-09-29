@@ -1,0 +1,302 @@
+openapi: 3.0.3
+info:
+  title: Issue Tracker API
+  version: "1.0.0"
+  description: >
+    JSON API for the Issue Tracker. Authenticated with an API key that carries
+    a role of `user` or `admin`. Served by the Supabase Edge Function `api`.
+  contact:
+    name: Issue Tracker
+servers:
+  - url: https://<project-ref>.supabase.co/functions/v1/api
+    description: Supabase Edge Function gateway
+tags:
+  - name: Health
+  - name: Identity
+  - name: Issues
+  - name: Stats
+  - name: Users
+  - name: Archive
+  - name: Notifications
+  - name: Keys
+security:
+  - ApiKeyHeader: []
+  - BearerAuth: []
+paths:
+  /health:
+    get:
+      tags: [Health]
+      summary: Liveness and version (no key required)
+      security: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: ok }
+                  service: { type: string, example: issue-tracker-api }
+                  version: { type: string, example: v1 }
+                  time: { type: string, format: date-time }
+  /v1/me:
+    get:
+      tags: [Identity]
+      summary: The profile and role behind the API key
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Envelope" } } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /v1/issues:
+    get:
+      tags: [Issues]
+      summary: List issues
+      parameters:
+        - { in: query, name: status, schema: { type: string, enum: [pending, fixing, done] } }
+        - { in: query, name: priority, schema: { type: string, enum: [low, medium, high] } }
+        - { in: query, name: label, schema: { type: string } }
+        - { in: query, name: author_id, schema: { type: string, format: uuid } }
+        - { in: query, name: mine, schema: { type: boolean }, description: Only the key's own issues }
+        - { in: query, name: created_from, schema: { type: string, format: date-time } }
+        - { in: query, name: created_to, schema: { type: string, format: date-time } }
+        - { in: query, name: q, schema: { type: string }, description: Search title/description }
+        - { in: query, name: sort, schema: { type: string, enum: [created_at, updated_at, completed_at, priority, status, title], default: created_at } }
+        - { in: query, name: order, schema: { type: string, enum: [asc, desc], default: desc } }
+        - { in: query, name: limit, schema: { type: integer, minimum: 1, maximum: 100, default: 25 } }
+        - { in: query, name: offset, schema: { type: integer, minimum: 0, default: 0 } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/ListEnvelope" } } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    post:
+      tags: [Issues]
+      summary: Report an issue
+      description: A `user` key always creates `pending`; an `admin` key may set status and author.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/IssueInput" }
+      responses:
+        "201": { description: Created, content: { application/json: { schema: { $ref: "#/components/schemas/Envelope" } } } }
+        "422": { $ref: "#/components/responses/Validation" }
+  /v1/issues/{id}:
+    parameters:
+      - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
+    get:
+      tags: [Issues]
+      summary: Get one issue
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Envelope" } } } }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      tags: [Issues]
+      summary: Update an issue
+      description: >
+        Only the reporter may change title/description/label. Only an `admin`
+        key may change `status` or set `admin_note`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/IssuePatch" }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Envelope" } } } }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    delete:
+      tags: [Issues]
+      summary: Soft-delete an issue (moves it to the Archive)
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Envelope" } } } }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /v1/issues/{id}/restore:
+    post:
+      tags: [Issues]
+      summary: Restore an issue from the Archive (admin)
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Envelope" } } } }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /v1/stats:
+    get:
+      tags: [Stats]
+      summary: Issue counts (scope mine for user keys, all for admin)
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Envelope" } } } }
+  /v1/users:
+    get:
+      tags: [Users]
+      summary: List accounts (admin)
+      parameters:
+        - { in: query, name: limit, schema: { type: integer, default: 50, maximum: 200 } }
+        - { in: query, name: offset, schema: { type: integer, default: 0 } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/ListEnvelope" } } } }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /v1/users/{id}:
+    parameters:
+      - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
+    get:
+      tags: [Users]
+      summary: Get one account (admin)
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Envelope" } } } }
+    patch:
+      tags: [Users]
+      summary: Promote or demote an account (admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [role]
+              properties:
+                role: { type: string, enum: [admin, user] }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Envelope" } } } }
+        "409": { description: Cannot demote the last admin }
+  /v1/archive:
+    get:
+      tags: [Archive]
+      summary: List soft-deleted issues (admin)
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/ListEnvelope" } } } }
+    delete:
+      tags: [Archive]
+      summary: Empty the Archive permanently (admin)
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Envelope" } } } }
+  /v1/archive/{id}/restore:
+    post:
+      tags: [Archive]
+      summary: Restore one archived issue (admin)
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Envelope" } } } }
+  /v1/notifications:
+    get:
+      tags: [Notifications]
+      summary: Your newest 50 notifications
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/ListEnvelope" } } } }
+  /v1/notifications/read-all:
+    post:
+      tags: [Notifications]
+      summary: Mark all your notifications read
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Envelope" } } } }
+  /v1/notifications/{id}/read:
+    patch:
+      tags: [Notifications]
+      summary: Mark one notification read
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Envelope" } } } }
+  /v1/keys:
+    get:
+      tags: [Keys]
+      summary: List API keys, secrets never returned (admin)
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/ListEnvelope" } } } }
+    post:
+      tags: [Keys]
+      summary: Create an API key — plaintext returned once (admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string, maxLength: 80 }
+                role: { type: string, enum: [admin, user], default: user }
+                profile_id: { type: string, format: uuid, description: Defaults to the creating key's profile }
+      responses:
+        "201": { description: Created, content: { application/json: { schema: { $ref: "#/components/schemas/Envelope" } } } }
+  /v1/keys/{id}:
+    delete:
+      tags: [Keys]
+      summary: Revoke an API key (admin)
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/Envelope" } } } }
+components:
+  securitySchemes:
+    ApiKeyHeader:
+      type: apiKey
+      in: header
+      name: x-api-key
+    BearerAuth:
+      type: http
+      scheme: bearer
+  parameters: {}
+  responses:
+    Unauthorized:
+      description: Missing, invalid or revoked key
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+    Forbidden:
+      description: Role too low, or not your row
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+    NotFound:
+      description: No such row or route
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+    Validation:
+      description: Field failed a rule
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+  schemas:
+    Envelope:
+      type: object
+      properties:
+        data: { type: object, additionalProperties: true }
+    ListEnvelope:
+      type: object
+      properties:
+        data:
+          type: array
+          items: { type: object, additionalProperties: true }
+        meta:
+          type: object
+          properties:
+            limit: { type: integer }
+            offset: { type: integer }
+            count: { type: integer }
+    ErrorEnvelope:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code: { type: string, example: forbidden }
+            message: { type: string, example: "Only admins can change the status." }
+    IssueInput:
+      type: object
+      required: [title]
+      properties:
+        title: { type: string, maxLength: 140 }
+        description: { type: string, maxLength: 2000 }
+        priority: { type: string, enum: [low, medium, high], default: medium }
+        label: { type: string, maxLength: 40 }
+        status: { type: string, enum: [pending, fixing, done], description: admin only; forced to pending for user keys }
+        author_id: { type: string, format: uuid, description: admin only }
+    IssuePatch:
+      type: object
+      properties:
+        title: { type: string, maxLength: 140, description: reporter only }
+        description: { type: string, maxLength: 2000, description: reporter only }
+        label: { type: string, maxLength: 40, description: reporter only }
+        priority: { type: string, enum: [low, medium, high] }
+        status: { type: string, enum: [pending, fixing, done], description: admin only }
+        admin_note: { type: string, maxLength: 2000, description: admin only }

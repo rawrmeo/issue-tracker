@@ -36,6 +36,24 @@
 
   var filters = { status: 'all', priority: 'all', q: '', sort: 'newest' };
 
+  /* An issue that is not done and has been open a week or more. */
+  var STALE_DAYS = 7;
+  function openDays(issue) {
+    if (!issue || !issue.createdAt) return 0;
+    return Math.floor((Date.now() - issue.createdAt) / 86400000);
+  }
+  function isStale(issue) {
+    return issue.status !== 'done' && openDays(issue) >= STALE_DAYS;
+  }
+
+  /* Admin bulk-action selection. */
+  var selection = {};
+  function selectedIds() {
+    return Object.keys(selection).filter(function (id) {
+      return issues.some(function (i) { return i.id === id; });
+    });
+  }
+
   var isAdmin = function () { return ET.auth.isAdmin(); };
   var currentUser = function () { return ET.auth.user; };
   var canManage = function (issue) {
@@ -71,7 +89,9 @@
       authorId: row.author_id,
       createdAt: Date.parse(row.created_at) || 0,
       updatedAt: Date.parse(row.updated_at) || 0,
-      completedAt: row.completed_at ? Date.parse(row.completed_at) : null
+      completedAt: row.completed_at ? Date.parse(row.completed_at) : null,
+      adminNote: row.admin_note || '',
+      adminNoteAt: row.admin_note_at ? Date.parse(row.admin_note_at) : 0
     };
   }
 
@@ -121,157 +141,13 @@
     setTimeout(function () { dot.classList.remove('pulse'); }, 600);
   }
 
-  /* --------------------------------- alerts ------------------------------
-   * A change to an issue shows up as a card in the corner for everyone
-   * looking at the board - including the admin who made it, so there is no
-   * doubt the write landed. Built with inline styles on purpose: it stays in
-   * this one file rather than needing its own stylesheet on every page.
-   * --------------------------------------------------------------------- */
-  var ALERT_COLOUR = {
-    created: '#4f46e5',
-    pending: '#b45309',
-    fixing:  '#2563eb',
-    done:    '#15803d',
-    removed: '#dc2626'
-  };
-
-  function alertHost() {
-    var host = $('issueAlerts');
-    if (host) return host;
-    host = document.createElement('div');
-    host.id = 'issueAlerts';
-    host.setAttribute('role', 'status');
-    host.setAttribute('aria-live', 'polite');
-    host.style.cssText =
-      'position:fixed;top:.9rem;right:.9rem;z-index:80;display:flex;flex-direction:column;' +
-      'gap:.5rem;max-width:min(92vw,340px);pointer-events:none;';
-    document.body.appendChild(host);
-    return host;
-  }
-
-  /* Who cares about this change? A reporter only about their own issues; an
-     admin about everything on the board. */
-  function worthNotifying(row) {
-    if (isAdmin()) return true;
-    var me = ET.auth && ET.auth.user && ET.auth.user.id;
-    return Boolean(row && row.author_id && me && row.author_id === me);
-  }
-
-  /** Add it to the bell list as well as the corner alert. */
-  function notify(kind, title, body, row) {
-    if (!ET.notifications || !ET.notifications.push) return;
-    if (!worthNotifying(row)) return;
-    ET.notifications.push({ kind: kind, title: title, body: body });
-  }
-
-  /* A status change WE made, remembered for a minute.
-     Our own update refreshes the list immediately, so by the time the realtime
-     event comes back the cached status is already the new one and the change
-     would look like no change at all. This keeps "what it was" for our own
-     writes, so the bell still rings for them. */
-  var myStatusChanges = {};
-
-  function rememberMyStatusChange(id, from, to) {
-    if (!id) return;
-    myStatusChanges[id] = { from: from, to: to, at: Date.now() };
-  }
-
-  function takeMyStatusChange(id) {
-    var entry = myStatusChanges[id];
-    if (!entry) return null;
-    delete myStatusChanges[id];
-    if (Date.now() - entry.at > 60000) return null;
-    return entry;
-  }
-
-  function showAlert(kind, heading, detail) {
-    var card = document.createElement('div');
-    card.style.cssText =
-      'pointer-events:auto;cursor:pointer;background:var(--surface);border:1px solid var(--border);' +
-      'border-left:4px solid ' + (ALERT_COLOUR[kind] || ALERT_COLOUR.created) + ';border-radius:10px;' +
-      'padding:.7rem .85rem;box-shadow:0 10px 30px rgba(16,20,30,.22);font-size:.85rem;' +
-      'opacity:0;transform:translateY(-6px);transition:opacity .18s,transform .18s;';
-
-    var headingEl = document.createElement('strong');
-    headingEl.textContent = heading;
-    headingEl.style.cssText = 'display:block;';
-    card.appendChild(headingEl);
-
-    if (detail) {
-      var detailEl = document.createElement('div');
-      detailEl.textContent = detail;
-      detailEl.style.cssText = 'color:var(--muted);margin-top:.15rem;word-break:break-word;';
-      card.appendChild(detailEl);
-    }
-
-    alertHost().appendChild(card);
-    requestAnimationFrame(function () {
-      card.style.opacity = '1';
-      card.style.transform = 'none';
-    });
-
-    function dismiss() {
-      card.style.opacity = '0';
-      card.style.transform = 'translateY(-6px)';
-      setTimeout(function () { if (card.parentNode) card.parentNode.removeChild(card); }, 220);
-    }
-
-    card.addEventListener('click', dismiss);   // click to dismiss early
-    setTimeout(dismiss, 8000);
-  }
-
   function subscribeRealtime() {
     var sb = ET.getClient();
     if (!sb) return;
     if (channel) { try { sb.removeChannel(channel); } catch (e) { /* ignore */ } }
     channel = sb.channel('tracker-issues')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'issues' },
-        function (payload) {
-          var row = payload.new || {};
-          flashLive();
-          showAlert('created', 'New issue reported', row.title || '');
-          notify('created', 'New issue reported', row.title || '', row);
-          refresh({ silent: true });
-        })
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'issues' },
-        function (payload) {
-          var row = payload.new || {};
-          var previous = payload.old || {};
-
-          // With REPLICA IDENTITY FULL the event itself carries what the
-          // status WAS, and that is the only reliable source: by the time this
-          // event lands, the list may already have refreshed, in which case
-          // our own cache holds the NEW value and the change looks like none.
-          var wasStatus = previous.status;
-          if (!wasStatus) {
-            var mine = takeMyStatusChange(row.id);
-            if (mine) wasStatus = mine.from;
-          }
-          if (!wasStatus) {
-            var cached = issues.filter(function (i) { return i.id === row.id; })[0];
-            wasStatus = cached ? cached.status : null;
-          }
-
-          // Alert on a status change only - an edit that leaves the status
-          // alone should not shout.
-          if (row.status && wasStatus && wasStatus !== row.status) {
-            var label = 'Status changed to ' + (STATUS_LABEL[row.status] || row.status);
-            flashLive();
-            showAlert(row.status, label, row.title || '');
-            notify(row.status, label, row.title || '', row);
-          }
-          refresh({ silent: true });
-        })
-      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'issues' },
-        function (payload) {
-          var row = payload.old || {};
-          // With REPLICA IDENTITY FULL this carries the whole old row, so the
-          // title is there and a reporter can be told which issue went.
-          flashLive();
-          showAlert('removed', 'Issue removed', row.title || 'An issue was removed.');
-          notify('removed', 'Issue removed', row.title || '', row);
-          refresh({ silent: true });
-        })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'issues' },
+        function () { refresh({ silent: true }); })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' },
         function () { refresh({ silent: true }); })
       .subscribe(function (status) {
@@ -295,15 +171,93 @@
     $('issueForm').reset();
     $('issuePriority').value = 'medium';
     $('issueStatus').value = 'pending';
-    $('issueSubmit').textContent = isAdmin() ? 'Add issue' : 'Report issue';
+    $('issueSubmit').textContent = 'Report issue';
     $('issueCancel').hidden = true;
-    $('formTitle').textContent = isAdmin() ? 'Add an issue' : 'Report an issue';
+    $('formTitle').textContent = 'Report an issue';
     $('formHint').textContent = formHintText();
+
+    ['issueTitle', 'issueDescription', 'issueLabel', 'issuePriority'].forEach(function (id) {
+      var field = $(id);
+      if (field) field.disabled = false;
+    });
+    var noteField = $('noteField');
+    if (noteField) noteField.hidden = true;
+    var noteBox = $('issueNote');
+    if (noteBox) noteBox.value = '';
+    var lockBox = $('lockNote');
+    if (lockBox) { lockBox.hidden = true; lockBox.textContent = ''; }
+  }
+
+  /* ---- small "message to the reporter" dialog (admins, others' issues) ---- */
+
+  var noteId = null;
+
+  function openNoteDialog(issue) {
+    noteId = issue.id;
+    $('noteWho').textContent = 'Reported by ' + authorName(issue.authorId) +
+      '. The report itself is kept as written.';
+    $('noteStatus').value = issue.status;
+    $('notePriority').value = issue.priority;
+    $('noteText').value = issue.adminNote || '';
+    $('notePop').hidden = false;
+    setTimeout(function () { $('noteText').focus(); }, 30);
+  }
+
+  function closeNoteDialog() {
+    noteId = null;
+    $('notePop').hidden = true;
+  }
+
+  async function saveNoteDialog() {
+    if (!noteId || !isAdmin()) return;
+    var issue = issues.filter(function (i) { return i.id === noteId; })[0];
+    if (!issue) { closeNoteDialog(); return; }
+
+    var sb = ET.getClient();
+    if (!sb) return;
+
+    var patch = {
+      status: $('noteStatus').value,
+      priority: $('notePriority').value
+    };
+    var note = $('noteText').value.trim();
+    if (note !== (issue.adminNote || '')) {
+      patch.admin_note = note;
+      patch.admin_note_at = new Date().toISOString();
+    }
+
+    var btn = $('noteSave');
+    btn.disabled = true;
+    try {
+      var res = await sb.from('issues').update(patch).eq('id', noteId);
+      if (res.error && /admin_note|column .* does not exist/i.test(String(res.error.message || ''))) {
+        delete patch.admin_note;
+        delete patch.admin_note_at;
+        res = await sb.from('issues').update(patch).eq('id', noteId);
+      }
+      if (res.error) { toast(ET.friendlyError(res.error)); return; }
+      closeNoteDialog();
+      await refresh({ silent: true });
+      toast(note ? 'Message sent to the reporter.' : 'Issue updated.');
+    } finally {
+      btn.disabled = false;
+    }
   }
 
   function startEdit(id) {
     var issue = issues.filter(function (i) { return i.id === id; })[0];
     if (!issue || !canManage(issue)) return;
+
+    var u = ET.auth.user;
+    var mine = !!u && issue.authorId === u.id;
+
+    /* An admin opening someone else's issue gets the small comment dialog
+       instead of the big form: the report itself stays exactly as written. */
+    if (isAdmin() && !mine) { openNoteDialog(issue); return; }
+
+    /* Once reported, the reporter's own words are kept — nobody rewrites the
+       title and description of someone else's report. */
+    var lockText = !mine;
 
     editingId = id;
     $('issueTitle').value = issue.title;
@@ -311,13 +265,33 @@
     $('issuePriority').value = issue.priority;
     $('issueStatus').value = issue.status;
     $('issueLabel').value = issue.label || '';
+
+    $('issueTitle').disabled = lockText;
+    $('issueDescription').disabled = lockText;
+    $('issueLabel').disabled = lockText;
+    $('issuePriority').disabled = false;
+
+    var lockBox = $('lockNote');
+    if (lockBox) {
+      lockBox.hidden = !lockText;
+      lockBox.textContent = lockText
+        ? 'Reported by ' + authorName(issue.authorId) +
+          '. The title and description are kept as written — you can set the status, the priority, and leave a message.'
+        : '';
+    }
+
+    var noteField = $('noteField');
+    if (noteField) noteField.hidden = !isAdmin();
+    var noteBox = $('issueNote');
+    if (noteBox) noteBox.value = issue.adminNote || '';
+
     $('issueSubmit').textContent = 'Save changes';
     $('issueCancel').hidden = false;
     $('formTitle').textContent = 'Edit issue';
     $('formHint').textContent = isAdmin()
-      ? 'Update the details or change the status, then save.'
+      ? 'Set the status or priority, and leave a message for the reporter.'
       : 'Update your report, then save.';
-    $('issueTitle').focus();
+    if (!lockText) $('issueTitle').focus();
     var panel = document.querySelector('#issueFormPanel');
     if (panel) panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
@@ -343,17 +317,31 @@
     button.disabled = true;
     try {
       if (editingId) {
-        var patch = Object.assign({}, base);
-        // The database rejects this for non-admins anyway; not sending it
-        // keeps the request honest.
+        var current = issues.filter(function (i) { return i.id === editingId; })[0];
+        var iAmAuthor = !!current && !!u && current.authorId === u.id;
+
+        // Only the reporter may rewrite the report itself; an admin still
+        // triages priority. (Status is added below, admins only.)
+        var patch = iAmAuthor ? Object.assign({}, base) : { priority: base.priority };
         if (isAdmin()) patch.status = $('issueStatus').value;
 
-        if (patch.status) {
-          var wasIssue = issues.filter(function (i) { return i.id === editingId; })[0];
-          rememberMyStatusChange(editingId, wasIssue ? wasIssue.status : null, patch.status);
+        // A message for the reporter — only sent when an admin changed it.
+        if (isAdmin() && !$('noteField').hidden) {
+          var note = $('issueNote').value.trim();
+          var prevNote = current ? (current.adminNote || '') : '';
+          if (note !== prevNote) {
+            patch.admin_note = note;
+            patch.admin_note_at = new Date().toISOString();
+          }
         }
 
         var upd = await sb.from('issues').update(patch).eq('id', editingId);
+        if (upd.error && /admin_note|column .* does not exist/i.test(String(upd.error.message || ''))) {
+          // The admin-message migration has not been run yet — save the rest.
+          delete patch.admin_note;
+          delete patch.admin_note_at;
+          upd = await sb.from('issues').update(patch).eq('id', editingId);
+        }
         if (upd.error) { toast(ET.friendlyError(upd.error)); return; }
 
         resetIssueForm();
@@ -394,26 +382,23 @@
     var sb = ET.getClient();
     if (!sb) return;
 
-    var current = issues.filter(function (i) { return i.id === id; })[0];
-    rememberMyStatusChange(id, current ? current.status : null, status);
-
     var res = await sb.from('issues').update({ status: status }).eq('id', id);
     if (res.error) toast(ET.friendlyError(res.error));
     else toast('Status changed to ' + STATUS_LABEL[status] + '.');
     await refresh({ silent: true });
   }
 
-  /* The SQL half of the recycle bin not run yet? Say exactly that rather than
-     letting "Could not find the function ... in the schema cache" through. */
-  function friendlyWriteError(error) {
-    var m = String((error && error.message) || '');
-    if (/Could not find the function|PGRST202/i.test(m)) {
-      return 'The recycle bin is not set up yet. Run sql/recycle_bin.sql in the Supabase SQL Editor, then reload this page.';
+  /* Bin an issue. If the database has not had the recycle-bin migration yet,
+     fall back to a real delete so the button keeps working. */
+  async function binIssue(buildUpdate, buildDelete) {
+    var sb = ET.getClient();
+    if (!sb) return { error: null, fellBack: false };
+    var res = await buildUpdate(sb);
+    if (res.error && /deleted_at|column .* does not exist/i.test(String(res.error.message || ''))) {
+      var hard = await buildDelete(sb);
+      return { error: hard.error, fellBack: true };
     }
-    if (/deleted_at|schema cache.*column/i.test(m)) {
-      return 'The recycle bin is not set up yet. Run sql/recycle_bin.sql in the Supabase SQL Editor, then reload this page.';
-    }
-    return ET.friendlyError(error);
+    return { error: res.error, fellBack: false };
   }
 
   async function deleteIssue(id) {
@@ -421,17 +406,20 @@
     if (!issue) return;
     if (!canManage(issue)) { toast('You can only delete your own issues.'); return; }
 
-    var ok = await ET.confirm('Move “' + issue.title + '” to the recycle bin? An admin can put it back.',
-      { title: 'Delete issue', okLabel: 'Move to bin' });
+    var ok = await ET.confirm('Move “' + issue.title + '” to the archive? An admin can restore it.',
+      { title: 'Delete issue', okLabel: 'Move to archive' });
     if (!ok) return;
 
-    var sb = ET.getClient();
-    if (!sb) return;
-    var res = await sb.rpc('soft_delete_issue', { p_id: id });
-    if (res.error) { toast(friendlyWriteError(res.error)); return; }
+    // Soft delete: the row stays in the database, hidden, until the bin is emptied.
+    var result = await binIssue(
+      function (sb) { return sb.from('issues').update({ deleted_at: new Date().toISOString() }).eq('id', id); },
+      function (sb) { return sb.from('issues').delete().eq('id', id); }
+    );
+    if (result.error) { toast(ET.friendlyError(result.error)); return; }
     if (editingId === id) resetIssueForm();
+    delete selection[id];
     await refresh({ silent: true });
-    toast('Moved to the recycle bin.');
+    toast(result.fellBack ? 'Issue deleted.' : 'Moved to the archive.');
   }
 
   async function clearDone() {
@@ -439,16 +427,19 @@
     var done = issues.filter(function (i) { return i.status === 'done'; });
     if (!done.length) { toast('No done issues to clear.'); return; }
 
-    var ok = await ET.confirm('Move ' + done.length + ' done issue(s) to the recycle bin? An admin can put them back.',
-      { title: 'Clear done issues', okLabel: 'Move ' + done.length + ' to bin' });
+    var ok = await ET.confirm('Move ' + done.length + ' done issue(s) to the archive?',
+      { title: 'Clear done issues', okLabel: 'Move ' + done.length });
     if (!ok) return;
 
-    var sb = ET.getClient();
-    if (!sb) return;
-    var res = await sb.rpc('soft_delete_done');
-    if (res.error) { toast(friendlyWriteError(res.error)); return; }
+    var result = await binIssue(
+      function (sb) { return sb.from('issues').update({ deleted_at: new Date().toISOString() }).eq('status', 'done'); },
+      function (sb) { return sb.from('issues').delete().eq('status', 'done'); }
+    );
+    if (result.error) { toast(ET.friendlyError(result.error)); return; }
     await refresh({ silent: true });
-    toast('Moved ' + done.length + ' issue(s) to the recycle bin.');
+    toast(result.fellBack
+      ? ('Cleared ' + done.length + ' done issue(s).')
+      : ('Moved ' + done.length + ' done issue(s) to the archive.'));
   }
 
   /* ------------------------------ rendering ------------------------------ */
@@ -486,6 +477,21 @@
     var mine = !!u && issue.authorId === u.id;
     var status = issue.status;
 
+    var check = admin
+      ? '<input type="checkbox" class="issue-check" data-action="select" value="' + escapeHtml(issue.id) + '"' +
+          (selection[issue.id] ? ' checked' : '') + ' aria-label="Select this issue" />'
+      : '';
+
+    var stale = isStale(issue)
+      ? '<span class="stale-badge" title="Open for ' + openDays(issue) + ' days">Open ' + openDays(issue) + 'd</span>'
+      : '';
+
+    var adminNote = (issue.adminNote && (mine || admin))
+      ? '<div class="admin-note"><b>Message from admin:</b> ' + escapeHtml(issue.adminNote) +
+          (issue.adminNoteAt ? '<span class="when">' + escapeHtml(ET.timeAgo(issue.adminNoteAt)) + '</span>' : '') +
+        '</div>'
+      : '';
+
     var statusControl = admin
       ? '<select class="status-select status-' + status + '" data-action="status" aria-label="Set status">' +
           STATUSES.map(function (s) {
@@ -516,10 +522,12 @@
         ' data-status="' + escapeHtml(status) + '"' +
         ' data-priority="' + escapeHtml(issue.priority) + '">' +
         '<div class="issue-top">' +
+          check +
           statusControl +
           '<div class="issue-body">' +
-            '<div class="issue-title">' + escapeHtml(issue.title) + '</div>' +
+            '<div class="issue-title">' + escapeHtml(issue.title) + ' ' + stale + '</div>' +
             description +
+            adminNote +
             '<div class="issue-meta">' +
               '<span class="badge ' + escapeHtml(issue.priority) + '">' + escapeHtml(issue.priority) + '</span>' +
               label +
@@ -534,7 +542,73 @@
     );
   }
 
+  /* ---------------------------- bulk actions ----------------------------- */
+
+  function pruneSelection() {
+    var live = {};
+    issues.forEach(function (i) { if (selection[i.id]) live[i.id] = true; });
+    selection = live;
+  }
+
+  function updateBulkBar() {
+    var bar = $('bulkBar');
+    if (!bar) return;
+    if (!isAdmin()) { bar.hidden = true; return; }
+    var ids = selectedIds();
+    var count = $('bulkCount');
+    if (count) count.textContent = ids.length + ' selected';
+    bar.hidden = ids.length === 0;
+  }
+
+  async function bulkApplyStatus() {
+    if (!isAdmin()) return;
+    var ids = selectedIds();
+    if (!ids.length) return;
+    var status = $('bulkStatus').value;
+    if (STATUSES.indexOf(status) === -1) return;
+    var sb = ET.getClient();
+    if (!sb) return;
+    var res = await sb.from('issues').update({ status: status }).in('id', ids);
+    if (res.error) { toast(ET.friendlyError(res.error)); return; }
+    selection = {};
+    await refresh({ silent: true });
+    toast(ids.length + ' issue(s) set to ' + STATUS_LABEL[status] + '.');
+  }
+
+  async function bulkDelete() {
+    if (!isAdmin()) return;
+    var ids = selectedIds();
+    if (!ids.length) return;
+    var ok = await ET.confirm('Move ' + ids.length + ' selected issue(s) to the archive?',
+      { title: 'Delete issues', okLabel: 'Move ' + ids.length });
+    if (!ok) return;
+    var result = await binIssue(
+      function (sb) { return sb.from('issues').update({ deleted_at: new Date().toISOString() }).in('id', ids); },
+      function (sb) { return sb.from('issues').delete().in('id', ids); }
+    );
+    if (result.error) { toast(ET.friendlyError(result.error)); return; }
+    selection = {};
+    if (editingId && ids.indexOf(editingId) !== -1) resetIssueForm();
+    await refresh({ silent: true });
+    toast(result.fellBack
+      ? ('Deleted ' + ids.length + ' issue(s).')
+      : ('Moved ' + ids.length + ' issue(s) to the archive.'));
+  }
+
+  function bulkSelectAll() {
+    visibleIssues().forEach(function (i) { selection[i.id] = true; });
+    renderIssues();
+  }
+
+  function bulkClear() {
+    selection = {};
+    renderIssues();
+  }
+
   function renderIssues() {
+    pruneSelection();
+    updateBulkBar();
+
     var total = issues.length;
     var done = issues.filter(function (i) { return i.status === 'done'; }).length;
     var fixing = issues.filter(function (i) { return i.status === 'fixing'; }).length;
@@ -639,9 +713,19 @@
 
     $('issueList').addEventListener('change', function (event) {
       var select = event.target.closest('select[data-action="status"]');
-      if (!select) return;
-      var card = select.closest('.issue');
-      if (card) setStatus(card.dataset.id, select.value);
+      if (select) {
+        var card = select.closest('.issue');
+        if (card) setStatus(card.dataset.id, select.value);
+        return;
+      }
+      var box = event.target.closest('input[data-action="select"]');
+      if (box) {
+        var row = box.closest('.issue');
+        if (!row) return;
+        if (box.checked) selection[row.dataset.id] = true;
+        else delete selection[row.dataset.id];
+        updateBulkBar();
+      }
     });
 
     $('clearDoneBtn').addEventListener('click', clearDone);
@@ -649,7 +733,6 @@
       await refresh();
       toast('Reloaded from the database.');
     });
-    $('exportBtn').addEventListener('click', exportBackup);
 
     Array.prototype.forEach.call(document.querySelectorAll('.seg[data-filter="status"]'), function (btn) {
       btn.addEventListener('click', function () {
@@ -677,6 +760,56 @@
       clearTimeout(searchTimer);
       var value = e.target.value;
       searchTimer = setTimeout(function () { filters.q = value; renderIssues(); }, 120);
+    });
+
+    /* ---- admin bulk actions ---- */
+    var selectAll = $('bulkSelectAll');
+    if (selectAll) selectAll.addEventListener('click', bulkSelectAll);
+    var clearSel = $('bulkClear');
+    if (clearSel) clearSel.addEventListener('click', bulkClear);
+    var applySel = $('bulkApply');
+    if (applySel) applySel.addEventListener('click', bulkApplyStatus);
+    var delSel = $('bulkDelete');
+    if (delSel) delSel.addEventListener('click', bulkDelete);
+
+    /* ---- message-to-the-reporter dialog ---- */
+    var noteSave = $('noteSave');
+    if (noteSave) noteSave.addEventListener('click', saveNoteDialog);
+    var noteCancel = $('noteCancel');
+    if (noteCancel) noteCancel.addEventListener('click', closeNoteDialog);
+    var notePop = $('notePop');
+    if (notePop) notePop.addEventListener('click', function (e) { if (e.target === notePop) closeNoteDialog(); });
+
+    /* ---- keyboard shortcuts ---- */
+    var keysPop = $('keysPop');
+    var keysClose = $('keysClose');
+
+    function closeKeys() { if (keysPop) keysPop.hidden = true; }
+    if (keysClose) keysClose.addEventListener('click', closeKeys);
+    if (keysPop) keysPop.addEventListener('click', function (e) { if (e.target === keysPop) closeKeys(); });
+
+    document.addEventListener('keydown', function (e) {
+      if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey) return;
+      var tag = (e.target.tagName || '').toLowerCase();
+      if (tag === 'input' || tag === 'textarea' || tag === 'select' || e.target.isContentEditable) return;
+
+      if (e.key === '/') {
+        e.preventDefault();
+        var search = $('searchInput');
+        if (search) { search.focus(); search.select(); }
+      } else if (e.key === 'n' || e.key === 'N') {
+        e.preventDefault();
+        resetIssueForm();
+        var panel = document.querySelector('#issueFormPanel');
+        if (panel) panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        $('issueTitle').focus();
+      } else if (e.key === '?') {
+        e.preventDefault();
+        if (keysPop) keysPop.hidden = !keysPop.hidden;
+      } else if (e.key === 'Escape') {
+        closeKeys();
+        closeNoteDialog();
+      }
     });
   }
 
