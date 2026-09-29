@@ -76,6 +76,8 @@ Only admins can change the status of an issue
 | `supabase-config.js` | **Your** project URL + anon key (you fill this in) |
 | `supabase/schema.sql` | Base tables, RLS policies, triggers - run once |
 | `sql/APPLY-ALL.sql` | Every migration in one paste-once file |
+| `sql/api_keys.sql` | Backend for the public REST API (API keys). No app page - manage keys via SQL |
+| `supabase/functions/api/` | Edge Function: the REST API gateway (deploy with `--no-verify-jwt`) |
 | `ARCHITECTURE.md` | System architecture + process-flow diagrams (Mermaid) |
 | `HANDOVER.md` | Complete handover guide: abstract, repo map, and every left-panel item walked through with a flowchart |
 | `flowcharts.html` | Every diagram rendered on one page — just open it in a browser |
