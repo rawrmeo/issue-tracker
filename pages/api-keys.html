@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>API keys · Issue Tracker</title>
+  <link rel="manifest" href="../manifest.json" />
+  <link rel="apple-touch-icon" href="../apple-touch-icon.png" />
+  <meta name="theme-color" content="#1F6F9C" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="Issue Tracker" />
+  <link rel="icon" type="image/svg+xml" href="../logo.svg" />
+  <script>try{var t=localStorage.getItem('it.theme');if(t==='dark'||t==='light')document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+  <link rel="stylesheet" href="../styles.css" />
+  <link rel="stylesheet" href="../css/app.css" />
+  <link rel="stylesheet" href="../css/pages.css" />
+  <link rel="stylesheet" href="../css/sidebar.css" />
+  <link rel="stylesheet" href="../css/mobile-nav.css" />
+  <link rel="stylesheet" href="../css/features.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar"></aside>
+
+    <div class="main">
+      <header class="topbar" id="topbar"></header>
+
+      <main class="page-content">
+        <div class="page-head">
+          <h2>API keys</h2>
+          <p>Give other systems access to the REST API. A key carries a
+             <strong>user</strong> or <strong>admin</strong> role.</p>
+        </div>
+
+        <section class="card panel">
+          <div class="panel-head">
+            <h2>Create a key</h2>
+            <p class="muted">The secret is shown <strong>once</strong> — copy it
+               somewhere safe. Only a hash is stored.</p>
+          </div>
+
+          <form id="keyForm" class="report-filters">
+            <label class="field">
+              <span>Name</span>
+              <input id="keyName" type="text" maxlength="80" required
+                     placeholder="e.g. Reporting bot" />
+            </label>
+            <label class="field">
+              <span>Role</span>
+              <select id="keyRole">
+                <option value="user">user — own issues only</option>
+                <option value="admin">admin — full access</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Acts as</span>
+              <select id="keyProfile"></select>
+            </label>
+            <button type="submit" class="btn primary" id="keyCreate">Create key</button>
+          </form>
+
+          <div id="newKey" class="banner info" hidden>
+            <b>Copy this key now — it cannot be shown again.</b>
+            <div class="key-reveal">
+              <code id="newKeyValue"></code>
+              <button type="button" class="btn ghost" id="newKeyCopy">Copy</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="card panel">
+          <div class="panel-head">
+            <h2>Existing keys <span class="muted" id="keyCount">0</span></h2>
+            <p class="muted">Revoking is immediate and cannot be undone.</p>
+          </div>
+          <div id="keyList" class="key-list"></div>
+          <div id="keyEmpty" class="empty" hidden>
+            <div class="empty-icon">🔑</div>
+            <h3>No keys yet</h3>
+            <p class="muted">Create one above to let another system use the API.</p>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <div class="backdrop" id="backdrop" hidden></div>
+  <div id="toast" class="toast" hidden></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="../supabase-config.js"></script>
+  <script src="../js/install.js"></script>
+  <script src="../js/push.js"></script>
+  <script src="../js/notifications.js"></script>
+  <script src="../js/supabase.js"></script>
+  <script src="../js/toast.js"></script>
+  <script src="../js/modal.js"></script>
+  <script src="../js/auth.js"></script>
+  <script src="../js/layout.js"></script>
+  <script src="../js/sidebar.js"></script>
+  <script src="../js/page-apikeys.js"></script>
+<script>
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", function () {
+      navigator.serviceWorker.register("../sw.js").catch(function () {});
+    });
+  }
+</script>
+</body>
+</html>

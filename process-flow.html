@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Flowcharts - Issue Tracker</title>
+<style>
+  :root { --bg:#f6f7fb; --surface:#fff; --border:#e3e5ee; --text:#1b1d29; --muted:#6b7186; --accent:#1F6F9C; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--text);
+         font:15px/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; }
+  header { position:sticky; top:0; z-index:5; background:rgba(255,255,255,.92); backdrop-filter:blur(10px);
+           border-bottom:1px solid var(--border); padding:14px 22px; }
+  header h1 { margin:0; font-size:18px; }
+  header p { margin:3px 0 0; color:var(--muted); font-size:13px; }
+  main { padding:22px; max-width:1200px; margin:0 auto; display:grid; gap:22px; }
+  .card { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:18px 20px;
+          box-shadow:0 1px 2px rgba(20,22,40,.05), 0 8px 24px rgba(20,22,40,.06); }
+  .card h2 { margin:0 0 2px; font-size:15px; }
+  .card .src { margin:0 0 14px; color:var(--muted); font-size:12px; }
+  .n { display:inline-grid; place-items:center; min-width:22px; height:22px; padding:0 6px; margin-right:8px;
+       border-radius:999px; background:var(--accent); color:#fff; font-size:12px; font-weight:700; vertical-align:middle; }
+  .mermaid { display:flex; justify-content:center; overflow:auto; }
+  .mermaid svg { max-width:100%; height:auto; }
+  .err { color:#dc2626; font:12px/1.5 ui-monospace, Consolas, monospace; white-space:pre-wrap;
+         background:#fdecec; border-radius:8px; padding:10px; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#0f1117; --surface:#171a23; --border:#272b38; --text:#e7e9f0; --muted:#9aa1b5; }
+    header { background:rgba(23,26,35,.92); }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Issue Tracker - flowcharts</h1>
+  <p>12 diagrams, generated from PROCESS-FLOW.md - run <code>tools/build-flowcharts.ps1</code> to refresh.</p>
+</header>
+<main>
+  <section class="card">
+    <h2><span class="n">1</span>0. The framework at a glance</h2>
+    <p class="src">PROCESS-FLOW.md</p>
+    <pre class="mermaid">flowchart LR
+  P["P · PLAN&lt;br/&gt;report and triage"] --&gt; D["D · DO&lt;br/&gt;fix it"]
+  D --&gt; C["C · CHECK&lt;br/&gt;verify the fix"]
+  C --&gt; E["E · EVALUATE&lt;br/&gt;close, message, learn"]
+  E --&gt;|"not fixed, or it came back"| P
+  E --&gt;|"satisfied"| A["Evidence accumulates&lt;br/&gt;(Dashboard · Most repeated)"]
+  A --&gt; P</pre>
+  </section>
+  <section class="card">
+    <h2><span class="n">2</span>1. The whole loop, end to end</h2>
+    <p class="src">PROCESS-FLOW.md</p>
+    <pre class="mermaid">flowchart TB
+  subgraph Reporter["👤 Reporter"]
+    R1["Sign in"]
+    R2["Report an issue&lt;br/&gt;title · description · priority"]
+    R5["Read the admin's message&lt;br/&gt;(issue card · My Reports · bell)"]
+    R6{"Fixed?"}
+    R7["Reopen: report or reply again"]
+  end
+
+  subgraph Admin["🛠️ Admin"]
+    A1["Triage the new issue&lt;br/&gt;(bell + Issues board)"]
+    A2["Set the priority"]
+    A3["Set status = Fixing"]
+    A4["Work on the fix"]
+    A5["Set status = Done&lt;br/&gt;(confirm dialog)"]
+    A6["Leave a message to the reporter"]
+  end
+
+  subgraph System["🗄️ Database + app — the guard rails"]
+    S1["insert issues&lt;br/&gt;status = pending, author_id = me"]
+    S2["guard_issue_changes()&lt;br/&gt;only an admin may change status"]
+    S3["completed_at = now()&lt;br/&gt;updated_at = now()"]
+    S4["notify_issue_event()&lt;br/&gt;→ bell + optional push"]
+    S5["auto_snapshot()&lt;br/&gt;hourly backup"]
+    S6["Dashboard + Most repeated issues&lt;br/&gt;accumulate the evidence"]
+  end
+
+  R1 --&gt; R2 --&gt; S1 --&gt; A1 --&gt; A2 --&gt; A3 --&gt; S2
+  A3 --&gt; A4 --&gt; A5 --&gt; S2
+  S2 --&gt; S3 --&gt; S4
+  A6 --&gt; S4
+  S4 --&gt; R5 --&gt; R6
+  R6 --&gt;|yes| S6
+  R6 --&gt;|no| R7 --&gt; A3
+  S3 --&gt; S5
+  S6 --&gt; A1</pre>
+  </section>
+  <section class="card">
+    <h2><span class="n">3</span>2. Phase 1 — PLAN (report and triage)</h2>
+    <p class="src">PROCESS-FLOW.md</p>
+    <pre class="mermaid">flowchart TD
+  P0["P · PLAN begins"] --&gt; P1["Reporter signs in (index.html)"]
+  P1 --&gt; P2["Opens Issues → Report an issue"]
+  P2 --&gt; P3["Fills title, description, priority, label&lt;br/&gt;status is forced to pending"]
+  P3 --&gt; P4["insert into issues&lt;br/&gt;author_id = auth.uid()"]
+  P4 --&gt; P5{"Who reported it?"}
+  P5 --&gt;|"a reporter"| P6["Every admin is notified&lt;br/&gt;bell + optional push"]
+  P5 --&gt;|"an admin"| P7["No notification to self"]
+  P6 --&gt; P8["Admin reads it on Issues / Dashboard"]
+  P7 --&gt; P8
+  P8 --&gt; P9["Admin sets the priority&lt;br/&gt;and edits triage fields"]
+  P9 --&gt; P10["P · PLAN complete → DO"]</pre>
+  </section>
+  <section class="card">
+    <h2><span class="n">4</span>3. Phase 2 — DO (make the fix)</h2>
+    <p class="src">PROCESS-FLOW.md</p>
+    <pre class="mermaid">flowchart TD
+  D0["D · DO begins"] --&gt; D1["Admin sets status = pending → fixing"]
+  D1 --&gt; D2{"guard_issue_changes()&lt;br/&gt;is the caller an admin?"}
+  D2 --&gt;|no| DX["❌ 'Only admins can change the status'&lt;br/&gt;rejected in the database"]
+  D2 --&gt;|yes| D3["updated_at = now()&lt;br/&gt;completed_at = null"]
+  D3 --&gt; D4["Admin works on the fix"]
+  D4 --&gt; D5["Realtime updates every open tab"]
+  D5 --&gt; D6["D · DO complete → CHECK"]</pre>
+  </section>
+  <section class="card">
+    <h2><span class="n">5</span>4. Phase 3 — CHECK (verify it is really done)</h2>
+    <p class="src">PROCESS-FLOW.md</p>
+    <pre class="mermaid">flowchart TD
+  C0["C · CHECK begins"] --&gt; C1["Admin picks status = Done"]
+  C1 --&gt; C2["Confirm dialog:&lt;br/&gt;'Mark issue #…as done?'"]
+  C2 --&gt;|cancel| C1
+  C2 --&gt;|confirm| C3{"guard_issue_changes()&lt;br/&gt;is the caller an admin?"}
+  C3 --&gt;|no| CX["❌ rejected in the database"]
+  C3 --&gt;|yes| C4["completed_at = now()&lt;br/&gt;updated_at = now()"]
+  C4 --&gt; C5["notify_issue_event()&lt;br/&gt;→ reporter's bell / push"]
+  C5 --&gt; C6["auto_snapshot()&lt;br/&gt;maybe a backup"]
+  C6 --&gt; C7["C · CHECK complete → EVALUATE"]</pre>
+  </section>
+  <section class="card">
+    <h2><span class="n">6</span>5. Phase 4 — EVALUATE (close the loop)</h2>
+    <p class="src">PROCESS-FLOW.md</p>
+    <pre class="mermaid">flowchart TD
+  E0["E · EVALUATE begins"] --&gt; E1["Admin leaves a&lt;br/&gt;Message to the reporter"]
+  E1 --&gt; E2["admin_note + admin_note_at saved"]
+  E2 --&gt; E3["Reporter sees it on the issue card,&lt;br/&gt;on My Reports, and in the bell"]
+  E3 --&gt; E4{"Reporter satisfied?"}
+  E4 --&gt;|yes| E5["Stays Done"]
+  E4 --&gt;|no| E6["Reopen → status Fixing / Pending"]
+  E6 --&gt; E7["Back to DO"]
+  E5 --&gt; E8["Dashboard + Most repeated issues&lt;br/&gt;accumulate the evidence"]
+  E8 --&gt; E9["E · EVALUATE feeds the next PLAN"]</pre>
+  </section>
+  <section class="card">
+    <h2><span class="n">7</span>6. The decision tree in one view</h2>
+    <p class="src">PROCESS-FLOW.md</p>
+    <pre class="mermaid">flowchart TD
+  Start(["Issue reported"]) --&gt; Reported["status = pending"]
+  Reported --&gt; Triage["Admin triages:&lt;br/&gt;priority + label"]
+  Triage --&gt; Fixing["status = fixing"]
+  Fixing --&gt; Verify{"Fix verified?"}
+  Verify --&gt;|no| Fixing
+  Verify --&gt;|yes| Done["status = done&lt;br/&gt;completed_at set"]
+  Done --&gt; Msg["Admin message + notification"]
+  Msg --&gt; Sat{"Reporter satisfied?"}
+  Sat --&gt;|yes| Archive["Closed — evidence on the Dashboard"]
+  Sat --&gt;|no| Fixing
+  Archive --&gt; Learn["Repeated-issue check&lt;br/&gt;→ improved plan"]
+  Learn --&gt; Reported</pre>
+  </section>
+  <section class="card">
+    <h2><span class="n">8</span>8. The same PDCE cycle for the maintainer</h2>
+    <p class="src">PROCESS-FLOW.md</p>
+    <pre class="mermaid">flowchart LR
+  P["PLAN&lt;br/&gt;pick the next change"] --&gt; D["DO&lt;br/&gt;edit files · git commit (develop)"]
+  D --&gt; GP["git push → GitHub&lt;br/&gt;(post-commit hook or deploy.ps1)"]
+  GP --&gt; C["CHECK&lt;br/&gt;Vercel preview deployment&lt;br/&gt;test the build"]
+  C --&gt; PR["Pull request&lt;br/&gt;develop → main"]
+  PR --&gt; M["Merge on GitHub"]
+  M --&gt; E["EVALUATE&lt;br/&gt;Vercel production deploy&lt;br/&gt;the live URL updates"]
+  E --&gt; P</pre>
+  </section>
+  <section class="card">
+    <h2><span class="n">9</span>9. Where GitHub is used in the system</h2>
+    <p class="src">PROCESS-FLOW.md</p>
+    <pre class="mermaid">flowchart TB
+  subgraph Delivery["🛠️ Delivery time — GitHub lives here"]
+    Dev["Developer"] --&gt; WS["Working tree"]
+    WS --&gt;|"git commit"| Local["Local repo (.git)"]
+    Local --&gt;|"post-commit hook / deploy.ps1"| GH["🐙 GitHub&lt;br/&gt;source of truth"]
+    GH --&gt;|"push to main"| Build["▲ Vercel build"]
+  end
+
+  subgraph Runtime["▶ Runtime — no GitHub involved"]
+    Browser["Browser / installed PWA"] --&gt;|"GET HTML · CSS · JS"| Host["▲ Vercel static hosting"]
+    Browser --&gt;|"JWT + data + realtime"| Supabase["🐘 Supabase&lt;br/&gt;Auth · Postgres · RLS"]
+  end
+
+  Build --&gt;|"deploys"| Host</pre>
+  </section>
+  <section class="card">
+    <h2><span class="n">10</span>9.1 The jobs GitHub does</h2>
+    <p class="src">PROCESS-FLOW.md</p>
+    <pre class="mermaid">flowchart LR
+  G["🐙 GitHub"] --&gt; T1["1 · Source control&lt;br/&gt;history of every change"]
+  G --&gt; T2["2 · Branch model&lt;br/&gt;develop = work · main = stable"]
+  G --&gt; T3["3 · Pull requests&lt;br/&gt;develop → main review"]
+  G --&gt; T4["4 · Deploy trigger&lt;br/&gt;Vercel watches the repo"]
+  G --&gt; T5["5 · Off-machine backup&lt;br/&gt;the code survives the PC"]
+  G --&gt; T6["6 · Documentation&lt;br/&gt;*.md + Mermaid render on GitHub"]
+  G --&gt; T7["7 · Collaboration&lt;br/&gt;remotes: origin · myfork · friend"]</pre>
+  </section>
+  <section class="card">
+    <h2><span class="n">11</span>9.2 How a change reaches production</h2>
+    <p class="src">PROCESS-FLOW.md</p>
+    <pre class="mermaid">flowchart LR
+  C["git commit on develop"] --&gt; H["post-commit hook&lt;br/&gt;auto-pushes (never main/master)"]
+  H --&gt; GD["GitHub: develop"]
+  GD --&gt; PV["Vercel: preview deployment&lt;br/&gt;test before shipping"]
+  GD --&gt; PR["Pull request: develop → main"]
+  PR --&gt; MG["Merge on GitHub"]
+  MG --&gt; GM["GitHub: main"]
+  GM --&gt; PD["Vercel: production deployment"]
+  PD --&gt; Live["https://issue-tracker-alpha-drab.vercel.app"]</pre>
+  </section>
+  <section class="card">
+    <h2><span class="n">12</span>9.4 Where GitHub is not used</h2>
+    <p class="src">PROCESS-FLOW.md</p>
+    <pre class="mermaid">flowchart LR
+  U["👤 User"] --&gt; B["Browser"]
+  B --&gt;|"files"| V["▲ Vercel"]
+  B --&gt;|"login · data · realtime · push"| S["🐘 Supabase"]
+  B -.-&gt;|"❌ never"| G["🐙 GitHub"]</pre>
+  </section>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>
+  mermaid.initialize({
+    startOnLoad: true,
+    securityLevel: 'loose',
+    theme: window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'default',
+    flowchart: { useMaxWidth: true, htmlLabels: true },
+    themeVariables: { fontFamily: 'ui-sans-serif, system-ui, "Segoe UI", Roboto, Arial' }
+  });
+  window.addEventListener('error', function (e) {
+    var pre = e.target && e.target.closest && e.target.closest('.mermaid');
+    if (pre && pre.parentNode) {
+      var box = document.createElement('div');
+      box.className = 'err';
+      box.textContent = 'This diagram failed to render: ' + (e.message || e.type);
+      pre.parentNode.replaceChild(box, pre);
+    }
+  }, true);
+</script>
+</body>
+</html>

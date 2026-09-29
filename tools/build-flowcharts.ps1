@@ -1,19 +1,26 @@
 # ============================================================================
 #  tools/build-flowcharts.ps1
 # ----------------------------------------------------------------------------
-#  Regenerates flowcharts.html from the ```mermaid blocks in ARCHITECTURE.md
-#  and HANDOVER.md, so the single-page viewer can never drift from the docs.
+#  Regenerates an HTML viewer from the ```mermaid blocks in one or more
+#  markdown files, so the viewer can never drift from the docs.
 #
 #  Usage (from the repo root):
+#      # all diagrams
 #      powershell -ExecutionPolicy Bypass -File tools/build-flowcharts.ps1
 #
-#  The two markdown files are the single source of truth: edit a diagram there,
+#      # just the PDCE process flow
+#      powershell -ExecutionPolicy Bypass -File tools/build-flowcharts.ps1 `
+#          -Sources PROCESS-FLOW.md -Output process-flow.html
+#
+#  The markdown files are the single source of truth: edit a diagram there,
 #  re-run this script, and the viewer updates. No Node.js, no build step.
 # ============================================================================
 
 [CmdletBinding()]
 param(
-  [string] $Root
+  [string]   $Root,
+  [string[]] $Sources = @('ARCHITECTURE.md', 'HANDOVER.md'),
+  [string]   $Output  = 'flowcharts.html'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -26,8 +33,7 @@ if (-not $Root) {
 }
 if (-not $Root) { $Root = (Get-Location).Path }
 
-$sources = @('ARCHITECTURE.md', 'HANDOVER.md')
-$output  = Join-Path $Root 'flowcharts.html'
+$output = Join-Path $Root $Output
 
 function ConvertTo-HtmlText {
   param([string] $Text)
@@ -114,7 +120,7 @@ $sb = New-Object System.Text.StringBuilder
 [void]$sb.AppendLine('<body>')
 [void]$sb.AppendLine('<header>')
 [void]$sb.AppendLine('  <h1>Issue Tracker - flowcharts</h1>')
-[void]$sb.AppendLine("  <p>$($blocks.Count) diagrams, generated from ARCHITECTURE.md and HANDOVER.md - run <code>tools/build-flowcharts.ps1</code> to refresh.</p>")
+[void]$sb.AppendLine("  <p>$($blocks.Count) diagrams, generated from $($Sources -join ', ') - run <code>tools/build-flowcharts.ps1</code> to refresh.</p>")
 [void]$sb.AppendLine('</header>')
 [void]$sb.AppendLine('<main>')
 

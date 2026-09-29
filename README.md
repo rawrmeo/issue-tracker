@@ -61,6 +61,10 @@ Only admins can change the status of an issue
 | `supabase-config.js` | **Your** project URL + anon key (you fill this in) |
 | `supabase/schema.sql` | Base tables, RLS policies, triggers - run once |
 | `sql/APPLY-ALL.sql` | Every migration in one paste-once file |
+| `sql/api.sql` | Public REST API support: API keys, stats, webhooks - run once |
+| `supabase/functions/api/` | The public REST API gateway (Supabase Edge Function) |
+| `API.md` | REST API docs and the full endpoint catalog |
+| `openapi.yaml` | OpenAPI 3 spec for the REST API |
 | `ARCHITECTURE.md` | System architecture + process-flow diagrams (Mermaid) |
 | `HANDOVER.md` | Complete handover guide: abstract, repo map, and every left-panel item walked through with a flowchart |
 | `flowcharts.html` | Every diagram rendered on one page — just open it in a browser |
@@ -245,6 +249,10 @@ A service worker caches the shell, so it also opens when the phone is offline
   whatever their status, including any message an admin left.
 - **Reports (admins)** — filter by day, week, month, year or a custom range,
   then export exactly what is shown as **CSV**, **JSON** or **Print / PDF**.
+- **Public REST API (optional)** — admins issue **API keys** (`user` or `admin`),
+  other systems consume a versioned REST API, and outbound **Webhooks** push
+  issue events to your URLs. In the sidebar: **API keys**, **Webhooks**,
+  **API docs**. See `API.md` and `openapi.yaml`.
 - **Install app** — an **Install app** button (sidebar and sign-in page) turns
   the site into a home-screen app on phones.
 - **Automatic backups (admins)** — Settings → **Automatic backups**. The
