@@ -167,12 +167,8 @@ security definer
 set search_path = public
 as $$
 begin
-  -- The headline rule. The service role (only ever held by the trusted REST
-  -- API Edge Function, see sql/api.sql) is allowed through; the function
-  -- re-checks the API key's role, so reporters still cannot move a status.
-  if new.status is distinct from old.status
-     and not public.is_admin()
-     and coalesce(auth.role(), '') <> 'service_role' then
+  -- The headline rule.
+  if new.status is distinct from old.status and not public.is_admin() then
     raise exception 'Only admins can change the status of an issue'
       using errcode = '42501';
   end if;

@@ -1,19 +1,11 @@
 # ============================================================================
 #  supabase/config.toml
 # ----------------------------------------------------------------------------
-#  Edge Function settings. The important line for the public API is
-#  `verify_jwt = false`: consumers authenticate with their own API key
-#  (x-api-key), not a Supabase JWT, so the platform must NOT demand one.
+#  Edge Function settings.
 #
-#  Deploy with either:
-#      supabase functions deploy api --no-verify-jwt
-#  or, if you use the CLI with this file:
-#      supabase functions deploy api
+#  send-push is called by the database (pg_net), which sends no Supabase JWT,
+#  so JWT verification must be off for it.
 # ============================================================================
 
-[functions.api]
-verify_jwt = false
-
-# send-push is called by the database (pg_net), which also sends no JWT.
 [functions.send-push]
 verify_jwt = false

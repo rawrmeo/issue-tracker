@@ -85,11 +85,8 @@ Every file, and what it is for. **This is the map to read when you take over.**
 | `.vercelignore` | Keeps `.env*` and other local files out of deploys |
 | `deploy.ps1` | Windows helper: commit + push in one command |
 | `README.md`, `SETUP.md`, `ARCHITECTURE.md`, `HANDOVER.md`, `PROCESS-FLOW.md` | Docs |
-| `API.md`, `openapi.yaml` | Public REST API docs + OpenAPI 3 spec |
-| `TESTING.md`, `tools/test-api.ps1` | How to test the API + an automated smoke test |
 | `flowcharts.html` | Every diagram from `ARCHITECTURE.md` + `HANDOVER.md`, on one page |
 | `tools/build-flowcharts.ps1` | Regenerates `flowcharts.html` from the two markdown files |
-| `tools/deploy-api.ps1` | Deploys the API (SQL + Edge Function) via the Supabase Management API |
 | `supabase/schema.sql` | **The whole database** — tables, policies, triggers, functions |
 | `sql/*.sql` | Focused migrations; `sql/APPLY-ALL.sql` is all of them in one paste |
 
@@ -105,9 +102,6 @@ Every file, and what it is for. **This is the map to read when you take over.**
 | `profile.html` | Own details + password | `page-profile.js` |
 | `settings.html` | Appearance, filters, notifications, backups | `page-settings.js` |
 | `recycle-bin.html` | Archive: restore / empty deleted issues | `page-bin.js` |
-| `api-keys.html` | Admin: create / revoke API keys | `page-apikeys.js` |
-| `webhooks.html` | Admin: register outbound webhook URLs + delivery log | `page-webhooks.js` |
-| `api-docs.html` | Admin: in-app REST API reference + OpenAPI link | `page-apidocs.js` |
 | `admin-all.html` | All issues (legacy URL-only view) | `page-issues.js` + `page-admin.js` |
 | `admin-reported.html` | Reported (status filter = pending) | `page-issues.js` + `page-admin.js` |
 | `admin-pending.html` | Pending | `page-issues.js` + `page-admin.js` |
@@ -136,9 +130,6 @@ Every file, and what it is for. **This is the map to read when you take over.**
 | `page-profile.js` | profile | Read-only details + change password |
 | `page-settings.js` | settings | Appearance, clear filters, push switch, logout, backups |
 | `page-bin.js` | recycle-bin | List / restore / empty the Archive |
-| `page-apikeys.js` | api-keys | Create / revoke API keys (hashes only) |
-| `page-webhooks.js` | webhooks | Manage outbound webhook endpoints + delivery log |
-| `page-apidocs.js` | api-docs | Build the API base URL and copy it |
 
 ### `css/`
 
@@ -161,12 +152,10 @@ Every file, and what it is for. **This is the map to read when you take over.**
 | `sql/notifications.sql` | `notifications` table + `notify_issue_event()` trigger |
 | `sql/push_notifications.sql` | `push_subscriptions` + settings for the Web Push sender |
 | `sql/demo_data.sql` | 14 sample issues (only fills an empty board) |
-| `sql/api.sql` | Public REST API: API keys, stats, outbound webhooks |
 | `sql/APPLY-ALL.sql` | **Every migration above, in one run** |
 | `sql/admin_status_policy.sql` | Notes + verification queries for the status guard (nothing to run) |
 | `supabase/functions/send-push/index.ts` | Edge Function that actually sends a Web Push |
-| `supabase/functions/api/index.ts` | Edge Function: the public REST API gateway (API-key auth) |
-| `supabase/config.toml` | Edge Function settings: `verify_jwt = false` for `api` + `send-push` |
+| `supabase/config.toml` | Edge Function settings: `verify_jwt = false` for `send-push` |
 
 ---
 
