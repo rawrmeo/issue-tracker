@@ -77,7 +77,7 @@ grant all on public.api_keys to service_role;
 -- ============================================================================
 --  2. IS THE CALLER THE SERVICE ROLE?
 --     The Edge Function authenticates with the service key, so auth.uid() is
---     null and is_admin() would be false. PostgREST sets this claim for us.
+--     null and is_admin() would be false. auth.role() reads the role claim.
 -- ============================================================================
 
 create or replace function public.api_is_service()
@@ -85,7 +85,7 @@ returns boolean
 language sql
 stable
 as $$
-  select coalesce(current_setting('request.jwt.claim.role', true), '') = 'service_role';
+  select coalesce(auth.role(), '') = 'service_role';
 $$;
 
 
@@ -105,11 +105,12 @@ set search_path = public
 as $$
 begin
   -- The headline rule. Non-admins (and non-service callers) cannot move status.
-  -- The service-role check is inlined (no helper dependency) so this file and
-  -- supabase/schema.sql can be run in either order.
+  -- auth.role() is the supported way to read the caller's role (it also reads
+  -- the request.jwt.claims JSON); the legacy request.jwt.claim.role setting is
+  -- no longer populated by current PostgREST versions.
   if new.status is distinct from old.status
      and not public.is_admin()
-     and coalesce(current_setting('request.jwt.claim.role', true), '') <> 'service_role' then
+     and coalesce(auth.role(), '') <> 'service_role' then
     raise exception 'Only admins can change the status of an issue'
       using errcode = '42501';
   end if;

@@ -10,9 +10,11 @@ Archive, and outbound webhooks.
 Three one-time steps (see also `API.md` §6):
 
 1. **Database** — Supabase → SQL Editor → paste `sql/api.sql` → **Run**.
-2. **Gateway** — deploy the Edge Function:
+2. **Gateway** — deploy the Edge Function **with JWT verification off** (or the
+   platform rejects `x-api-key` calls):
    ```bash
-   supabase functions deploy api
+   supabase functions deploy api --no-verify-jwt
+   # or, no CLI:  tools/deploy-api.ps1 -ProjectRef <ref> -AccessToken sbp_xxx
    ```
 3. **A key** — in the app as admin: **API keys → create** (role **admin**), and a
    second key with role **user** for the permission tests.

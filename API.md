@@ -252,16 +252,40 @@ curl -X POST .../v1/keys -H "x-api-key: $ADMIN_KEY" \
 
 ## 6. Deploy
 
-```bash
-# 1. Database objects (api_keys, stats, webhooks, service bypass)
-#    Supabase -> SQL Editor -> paste sql/api.sql -> Run
+**Critical:** the `api` function must be deployed with **JWT verification
+disabled**, because consumers authenticate with their own API key
+(`x-api-key`), not a Supabase JWT. If it stays on, the platform returns `401`
+before your code ever runs. This is set in `supabase/config.toml`
+(`[functions.api] verify_jwt = false`).
 
-# 2. The gateway
-supabase functions deploy api
+### Option A — one command (no CLI, no DB password)
 
-# 3. Create the first key
-#    In the app (admin) -> API keys, or the SQL bootstrap in section 2.
+Uses the Supabase **Management API** with a personal access token from
+<https://supabase.com/dashboard/account/tokens>:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File tools/deploy-api.ps1 `
+  -ProjectRef <project-ref> -AccessToken sbp_xxx
 ```
+
+It runs `sql/api.sql` and deploys/updates the function with JWT verification off.
+
+### Option B — Supabase CLI
+
+```bash
+supabase functions deploy api --no-verify-jwt
+```
+
+### Option C — dashboard
+
+1. **SQL Editor** → paste `sql/api.sql` → **Run**.
+2. **Edge Functions** → create a function named `api` → paste
+   `supabase/functions/api/index.ts` → **turn off “Enforce JWT verification”** → Deploy.
+
+### Then
+
+Create the first key: app (admin) → **API keys**, or the SQL bootstrap in
+section 2. Verify with `tools/test-api.ps1`.
 
 No extra secrets are needed — the function uses the built-in
 `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`.

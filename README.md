@@ -71,6 +71,8 @@ Only admins can change the status of an issue
 | `HANDOVER.md` | Complete handover guide: abstract, repo map, and every left-panel item walked through with a flowchart |
 | `flowcharts.html` | Every diagram rendered on one page — just open it in a browser |
 | `tools/build-flowcharts.ps1` | Regenerates `flowcharts.html` from the two markdown files |
+| `tools/deploy-api.ps1` | Deploys the API (SQL + Edge Function) via the Management API |
+| `supabase/config.toml` | Edge Function settings (`verify_jwt = false` for `api` + `send-push`) |
 | `SETUP.md` | Step-by-step database setup |
 | `vercel.json` | Vercel config (clean URLs, security headers) |
 | `deploy.ps1` | Windows helper: commit + push in one command |

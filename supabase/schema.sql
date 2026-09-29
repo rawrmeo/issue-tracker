@@ -172,7 +172,7 @@ begin
   -- re-checks the API key's role, so reporters still cannot move a status.
   if new.status is distinct from old.status
      and not public.is_admin()
-     and coalesce(current_setting('request.jwt.claim.role', true), '') <> 'service_role' then
+     and coalesce(auth.role(), '') <> 'service_role' then
     raise exception 'Only admins can change the status of an issue'
       using errcode = '42501';
   end if;

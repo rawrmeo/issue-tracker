@@ -89,6 +89,7 @@ Every file, and what it is for. **This is the map to read when you take over.**
 | `TESTING.md`, `tools/test-api.ps1` | How to test the API + an automated smoke test |
 | `flowcharts.html` | Every diagram from `ARCHITECTURE.md` + `HANDOVER.md`, on one page |
 | `tools/build-flowcharts.ps1` | Regenerates `flowcharts.html` from the two markdown files |
+| `tools/deploy-api.ps1` | Deploys the API (SQL + Edge Function) via the Supabase Management API |
 | `supabase/schema.sql` | **The whole database** — tables, policies, triggers, functions |
 | `sql/*.sql` | Focused migrations; `sql/APPLY-ALL.sql` is all of them in one paste |
 
@@ -165,6 +166,7 @@ Every file, and what it is for. **This is the map to read when you take over.**
 | `sql/admin_status_policy.sql` | Notes + verification queries for the status guard (nothing to run) |
 | `supabase/functions/send-push/index.ts` | Edge Function that actually sends a Web Push |
 | `supabase/functions/api/index.ts` | Edge Function: the public REST API gateway (API-key auth) |
+| `supabase/config.toml` | Edge Function settings: `verify_jwt = false` for `api` + `send-push` |
 
 ---
 
