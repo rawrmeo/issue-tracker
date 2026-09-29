@@ -27,6 +27,9 @@
     { key: 'my-reports', label: 'My Reports', icon: '📝', href: 'my-reports.html',   group: 'main', bottom: true },
     { key: 'reports',    label: 'Reports',    icon: '📊', href: 'reports.html',      group: 'main', admin: true, bottom: true },
     { key: 'users',     label: 'Users',     icon: '👥', href: 'users.html',        group: 'main', admin: true },
+    { key: 'api-keys',  label: 'API keys',  icon: '🔑', href: 'api-keys.html',     group: 'main', admin: true },
+    { key: 'webhooks',  label: 'Webhooks',  icon: '🪝', href: 'webhooks.html',     group: 'main', admin: true },
+    { key: 'api-docs',  label: 'API docs',  icon: '📘', href: 'api-docs.html',     group: 'main', admin: true },
     { key: 'archive',   label: 'Archive',   icon: '🗄️', href: 'recycle-bin.html',  group: 'main', admin: true, bottom: true }
   ];
 

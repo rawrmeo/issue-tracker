@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Webhooks · Issue Tracker</title>
+  <link rel="manifest" href="../manifest.json" />
+  <link rel="apple-touch-icon" href="../apple-touch-icon.png" />
+  <meta name="theme-color" content="#1F6F9C" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="Issue Tracker" />
+  <link rel="icon" type="image/svg+xml" href="../logo.svg" />
+  <script>try{var t=localStorage.getItem('it.theme');if(t==='dark'||t==='light')document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+  <link rel="stylesheet" href="../styles.css" />
+  <link rel="stylesheet" href="../css/app.css" />
+  <link rel="stylesheet" href="../css/pages.css" />
+  <link rel="stylesheet" href="../css/sidebar.css" />
+  <link rel="stylesheet" href="../css/mobile-nav.css" />
+  <link rel="stylesheet" href="../css/features.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar"></aside>
+
+    <div class="main">
+      <header class="topbar" id="topbar"></header>
+
+      <main class="page-content">
+        <div class="page-head">
+          <h2>Webhooks</h2>
+          <p>Doing <strong>Web API</strong>: tell another system whenever an issue
+             changes. The database POSTs a JSON event to your URL.</p>
+        </div>
+
+        <section class="card panel">
+          <div class="panel-head">
+            <h2>Register an endpoint</h2>
+            <p class="muted">Every delivery is signed with the secret via the
+               <code>x-webhook-secret</code> header.</p>
+          </div>
+
+          <form id="hookForm" class="report-filters">
+            <label class="field">
+              <span>Name</span>
+              <input id="hookName" type="text" maxlength="80" required placeholder="e.g. Slack bridge" />
+            </label>
+            <label class="field">
+              <span>URL</span>
+              <input id="hookUrl" type="url" required placeholder="https://example.com/hooks/issues" />
+            </label>
+            <label class="field">
+              <span>Secret</span>
+              <input id="hookSecret" type="text" placeholder="leave blank to generate" />
+            </label>
+            <button type="submit" class="btn primary" id="hookCreate">Add endpoint</button>
+          </form>
+
+          <div class="hook-events-picker" id="hookEvents" role="group" aria-label="Events">
+            <label class="et-chip"><input type="checkbox" value="*" checked /> all events</label>
+            <label class="et-chip"><input type="checkbox" value="issue.created" /> issue.created</label>
+            <label class="et-chip"><input type="checkbox" value="issue.updated" /> issue.updated</label>
+            <label class="et-chip"><input type="checkbox" value="issue.status_changed" /> issue.status_changed</label>
+            <label class="et-chip"><input type="checkbox" value="issue.done" /> issue.done</label>
+            <label class="et-chip"><input type="checkbox" value="issue.deleted" /> issue.deleted</label>
+          </div>
+        </section>
+
+        <section class="card panel">
+          <div class="panel-head">
+            <h2>Endpoints <span class="muted" id="hookCount">0</span></h2>
+          </div>
+          <div id="hookList" class="hook-list"></div>
+          <div id="hookEmpty" class="empty" hidden>
+            <div class="empty-icon">🪝</div>
+            <h3>No endpoints yet</h3>
+            <p class="muted">Register one above to receive issue events.</p>
+          </div>
+        </section>
+
+        <section class="card panel">
+          <div class="panel-head">
+            <h2>Recent deliveries</h2>
+            <p class="muted">The last 25 events the database sent, across all endpoints.</p>
+          </div>
+          <div id="deliveryList" class="delivery-list"></div>
+          <div id="deliveryEmpty" class="empty" hidden>
+            <div class="empty-icon">📭</div>
+            <h3>Nothing delivered yet</h3>
+            <p class="muted">Deliveries appear here after an issue changes.</p>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <div class="backdrop" id="backdrop" hidden></div>
+  <div id="toast" class="toast" hidden></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="../supabase-config.js"></script>
+  <script src="../js/install.js"></script>
+  <script src="../js/push.js"></script>
+  <script src="../js/notifications.js"></script>
+  <script src="../js/supabase.js"></script>
+  <script src="../js/toast.js"></script>
+  <script src="../js/modal.js"></script>
+  <script src="../js/auth.js"></script>
+  <script src="../js/layout.js"></script>
+  <script src="../js/sidebar.js"></script>
+  <script src="../js/page-webhooks.js"></script>
+<script>
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", function () {
+      navigator.serviceWorker.register("../sw.js").catch(function () {});
+    });
+  }
+</script>
+</body>
+</html>

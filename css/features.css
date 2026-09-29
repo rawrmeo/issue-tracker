@@ -259,3 +259,89 @@
 }
 .backup-row .backup-when { flex: 1 1 auto; font-size: .86rem; font-weight: 600; }
 .backup-row .btn { padding: .3rem .7rem; font-size: .82rem; }
+
+/* ------------------------------ API keys page ---------------------------- */
+.key-list { display: grid; gap: .4rem; }
+.key-row {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  flex-wrap: wrap;
+  padding: .6rem .7rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.key-row.revoked { opacity: .6; }
+.key-row .key-info { display: flex; align-items: center; gap: .55rem; flex-wrap: wrap; flex: 1 1 auto; }
+.key-row .key-name { font-weight: 600; }
+.key-row .key-prefix {
+  font: .78rem/1 ui-monospace, Consolas, monospace;
+  background: var(--surface-2, rgba(127,127,127,.12));
+  padding: .22rem .45rem;
+  border-radius: 6px;
+}
+.key-row .btn { padding: .3rem .7rem; font-size: .82rem; }
+.key-reveal { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; margin-top: .5rem; }
+.key-reveal code {
+  flex: 1 1 240px;
+  font: .82rem/1.5 ui-monospace, Consolas, monospace;
+  word-break: break-all;
+  background: var(--surface-2, rgba(127,127,127,.12));
+  padding: .5rem .6rem;
+  border-radius: 8px;
+}
+
+/* ------------------------------ Webhooks page --------------------------- */
+.hook-events-picker { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .6rem; }
+.hook-events-picker .et-chip { display: inline-flex; align-items: center; gap: .35rem; cursor: pointer; }
+.hook-events-picker input { accent-color: var(--accent); }
+
+.hook-list { display: grid; gap: .4rem; }
+.hook-row {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  flex-wrap: wrap;
+  padding: .6rem .7rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.hook-row.inactive { opacity: .6; }
+.hook-row .hook-info { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; flex: 1 1 auto; }
+.hook-row .hook-name { font-weight: 600; }
+.hook-row .hook-url {
+  font: .76rem/1 ui-monospace, Consolas, monospace;
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted);
+}
+.hook-row .hook-actions { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+.hook-row .btn { padding: .3rem .7rem; font-size: .82rem; }
+.hook-toggle { display: inline-flex; align-items: center; gap: .3rem; font-size: .82rem; }
+
+.delivery-list { display: grid; gap: .35rem; }
+.delivery { border: 1px solid var(--border); border-radius: 10px; padding: .45rem .6rem; }
+.delivery summary { display: flex; align-items: center; gap: .5rem; cursor: pointer; flex-wrap: wrap; }
+.delivery .delivery-when { font-size: .84rem; font-weight: 600; }
+.delivery-payload {
+  margin: .5rem 0 0;
+  max-height: 260px;
+  overflow: auto;
+  font: .76rem/1.5 ui-monospace, Consolas, monospace;
+  background: var(--surface-2, rgba(127,127,127,.12));
+  padding: .5rem .6rem;
+  border-radius: 8px;
+}
+
+/* ------------------------------ API docs page --------------------------- */
+.api-snippet {
+  margin: .4rem 0 0;
+  overflow: auto;
+  font: .8rem/1.6 ui-monospace, Consolas, monospace;
+  background: var(--surface-2, rgba(127,127,127,.12));
+  padding: .7rem .8rem;
+  border-radius: 10px;
+}
+.api-group { margin: 1rem 0 .4rem; font-size: .9rem; }
