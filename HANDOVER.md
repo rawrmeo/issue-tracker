@@ -86,6 +86,7 @@ Every file, and what it is for. **This is the map to read when you take over.**
 | `deploy.ps1` | Windows helper: commit + push in one command |
 | `README.md`, `SETUP.md`, `ARCHITECTURE.md`, `HANDOVER.md`, `PROCESS-FLOW.md` | Docs |
 | `API.md`, `openapi.yaml` | Public REST API docs + OpenAPI 3 spec |
+| `TESTING.md`, `tools/test-api.ps1` | How to test the API + an automated smoke test |
 | `flowcharts.html` | Every diagram from `ARCHITECTURE.md` + `HANDOVER.md`, on one page |
 | `tools/build-flowcharts.ps1` | Regenerates `flowcharts.html` from the two markdown files |
 | `supabase/schema.sql` | **The whole database** — tables, policies, triggers, functions |

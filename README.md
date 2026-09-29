@@ -65,6 +65,8 @@ Only admins can change the status of an issue
 | `supabase/functions/api/` | The public REST API gateway (Supabase Edge Function) |
 | `API.md` | REST API docs and the full endpoint catalog |
 | `openapi.yaml` | OpenAPI 3 spec for the REST API |
+| `TESTING.md` | How to test the API (automated + manual + webhooks) |
+| `tools/test-api.ps1` | Automated API smoke test (PASS/FAIL) |
 | `ARCHITECTURE.md` | System architecture + process-flow diagrams (Mermaid) |
 | `HANDOVER.md` | Complete handover guide: abstract, repo map, and every left-panel item walked through with a flowchart |
 | `flowcharts.html` | Every diagram rendered on one page — just open it in a browser |

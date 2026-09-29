@@ -8,6 +8,7 @@ Function `api` (`supabase/functions/api/index.ts`) and authenticated with an
 - **Version:** `v1` (paths are rooted at `/v1`)
 - **Format:** JSON in, JSON out (UTF-8)
 - **Machine spec:** [`openapi.yaml`](openapi.yaml)
+- **Testing guide:** [`TESTING.md`](TESTING.md)
 - **Database setup:** [`sql/api.sql`](sql/api.sql)
 - **Gateway code:** `supabase/functions/api/index.ts`
 
